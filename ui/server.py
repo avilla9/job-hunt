@@ -6,6 +6,7 @@ import shutil
 import sqlite3
 import subprocess
 import sys
+import threading
 import time
 import webbrowser
 from datetime import datetime
@@ -26,11 +27,8 @@ TOKEN = secrets.token_urlsafe(24)
 
 
 def current_run(db):
+    store.clear_stale_runs(db, po.pid_alive)
     run = db.execute("SELECT * FROM runs WHERE status='running' ORDER BY started_at DESC LIMIT 1").fetchone()
-    if run and not po.pid_alive(run["pid"]):
-        db.execute("UPDATE runs SET status='interrupted', finished_at=? WHERE id=?", (store.now(), run["id"]))
-        db.commit()
-        return None
     return dict(run) if run else None
 
 
@@ -137,7 +135,7 @@ def app_action(url, action):
     if rd.AP_DB.exists():
         ap = sqlite3.connect(rd.AP_DB)
         ap.execute("UPDATE jobs SET apply_status=?, apply_error=?, apply_attempts=0,"
-                   " applied_at=CASE WHEN ?='applied' THEN ? ELSE applied_at END WHERE url=?",
+                   " applied_at=CASE WHEN ?='applied' THEN ? ELSE NULL END WHERE url=?",
                    (ap_status, ap_error, ap_status, store.now(), url))
         ap.commit()
         ap.close()
@@ -150,7 +148,7 @@ def app_action(url, action):
     db.close()
 
 
-def start_run():
+def start_run(trigger="manual"):
     db = store.connect()
     busy, onboarded = current_run(db), store.get_settings(db)["onboarded"]
     db.close()
@@ -159,9 +157,9 @@ def start_run():
     if busy:
         return False, "Ya hay una ejecución en curso"
     (ROOT / "logs").mkdir(exist_ok=True)
-    po.spawn_detached([sys.executable, str(ROOT / "run_daily.py"), "manual"], ROOT,
+    po.spawn_detached([sys.executable, str(ROOT / "run_daily.py"), trigger], ROOT,
                       ROOT / "logs" / f"task-{datetime.now():%Y%m%d-%H%M%S}.txt")
-    return True, "Ejecución iniciada"
+    return True, "Prueba segura iniciada: no se enviará nada" if trigger == "test" else "Ejecución iniciada"
 
 
 def stop_run():
@@ -245,6 +243,12 @@ class Handler(BaseHTTPRequestHandler):
         return self.headers.get("Host") in (f"127.0.0.1:{PORT}", f"localhost:{PORT}")
 
     def do_GET(self):
+        try:
+            self.handle_get()
+        except Exception as e:
+            self.send(500, {"error": str(e) or repr(e)})
+
+    def handle_get(self):
         if not self.trusted():
             return self.send(403, {"error": "host"})
         url = urlparse(self.path)
@@ -283,6 +287,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if path == "/api/run":
                 ok, msg = start_run()
+            elif path == "/api/test-run":
+                ok, msg = start_run("test")
             elif path == "/api/stop":
                 ok, msg = stop_run()
             elif path == "/api/pause":
@@ -342,10 +348,30 @@ class Handler(BaseHTTPRequestHandler):
         self.send(200 if ok else 400, {"ok": ok, "message": msg, **payload})
 
 
+RESTART = threading.Event()
+
+
+def watch_code(server):
+    files = [*ROOT.glob("*.py"), Path(__file__).resolve()]
+    stamp = {f: f.stat().st_mtime for f in files}
+    while True:
+        time.sleep(3)
+        if any(f.exists() and f.stat().st_mtime != m for f, m in stamp.items()):
+            RESTART.set()
+            server.shutdown()
+            return
+
+
 if __name__ == "__main__":
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if sys.stdout:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
     print(f"Job Hunt en http://127.0.0.1:{PORT}  (no cierres esta ventana)")
     if "--no-browser" not in sys.argv:
         webbrowser.open(f"http://127.0.0.1:{PORT}")
+    threading.Thread(target=watch_code, args=(server,), daemon=True).start()
     server.serve_forever()
+    server.server_close()
+    if RESTART.is_set():
+        print("Código actualizado: reiniciando Job Hunt…", flush=True)
+        os.execv(sys.executable, [sys.executable, str(Path(__file__).resolve()), "--no-browser"])

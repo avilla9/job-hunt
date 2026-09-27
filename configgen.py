@@ -159,13 +159,21 @@ AGENCY_NO = ("### Step 1.5 — Agency postings (user standing preference)\n\n"
              "\"Agency posting — skipped by user preference\"; do not generate a PDF.\n\n")
 
 
-def build_batch_prompt(s):
-    git = subprocess.run(["git", "-C", str(CO), "show", "HEAD:batch/batch-prompt.md"], capture_output=True, text=True, encoding="utf-8")
-    if git.returncode != 0 or "### Step 1.5" not in git.stdout:
+def rewrite_from_head(relpath, pattern, replacement):
+    git = subprocess.run(["git", "-C", str(CO), "show", f"HEAD:{relpath}"], capture_output=True, text=True, encoding="utf-8")
+    if git.returncode != 0:
         return
-    text = re.sub(r"### Step 1\.5 — .*?(?=### Step 2)", lambda _: AGENCY_OK if s["accept_agencies"] else AGENCY_NO, git.stdout,
-                  count=1, flags=re.S)
-    write_if_changed(CO / "batch" / "batch-prompt.md", text)
+    text, n = re.subn(pattern, lambda _: replacement, git.stdout, count=1, flags=re.S)
+    if n:
+        write_if_changed(CO / relpath, text)
+
+
+def build_batch_prompt(s):
+    rule = AGENCY_OK if s["accept_agencies"] else AGENCY_NO
+    body = rule.split("\n\n", 1)[1]
+    rewrite_from_head("batch/batch-prompt.md", r"### Step 1\.5 — .*?(?=### Step 2)", rule)
+    rewrite_from_head("modes/_shared.md", r"### Agency confirmation handoff.*?(?=\n### )", "### Agency postings (user standing preference)\n\n" + body)
+    rewrite_from_head("modes/oferta.md", r"## Agency confirmation gate.*?(?=\n## )", "## Agency postings (user standing preference)\n\n" + body)
 
 
 def build_career_ops(s):
@@ -183,7 +191,7 @@ def build_career_ops(s):
     if s["roles"]:
         profile.setdefault("target_roles", {})["primary"] = s["roles"]
     if s["archetypes"]:
-        profile["target_roles"]["archetypes"] = [{"name": a.get("name", ""), "level": a.get("level", ""), "fit": a.get("fit", "primary")}
+        profile.setdefault("target_roles", {})["archetypes"] = [{"name": a.get("name", ""), "level": a.get("level", ""), "fit": a.get("fit", "primary")}
                                                  for a in s["archetypes"]]
     if s["headline"]:
         profile.setdefault("narrative", {})["headline"] = s["headline"]

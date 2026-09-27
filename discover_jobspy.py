@@ -1,4 +1,6 @@
 import hashlib
+import math
+import os
 import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -11,11 +13,19 @@ from filters import rejection  # noqa: E402
 CO = ROOT / "career-ops"
 CACHE = CO / "data" / "jd-cache"
 PIPELINE = CO / "data" / "pipeline.md"
-MAX_ROLES, MAX_LOCATIONS, PER_SEARCH = 5, 3, 25
+MAX_ROLES = int(os.environ.get("JOBSPY_MAX_ROLES", "5"))
+MAX_LOCATIONS = int(os.environ.get("JOBSPY_MAX_LOCATIONS", "3"))
+PER_SEARCH = 25
 
 
 def cache_path(url):
     return CACHE / f"{hashlib.sha1(url.encode()).hexdigest()}.txt"
+
+
+def clean(value):
+    if value is None or (isinstance(value, float) and math.isnan(value)):
+        return ""
+    return str(value).replace("|", "/").replace("\n", " ").strip()
 
 
 def indeed_country(name):
@@ -57,44 +67,63 @@ def scrape(role, place, remote_only, s):
     return frames
 
 
+def insert_pending(text, lines):
+    marker = "\n## Processed"
+    if marker in text:
+        head, tail = text.split(marker, 1)
+        return head.rstrip() + "\n" + "\n".join(lines) + "\n" + marker + tail
+    if "## Pending" not in text:
+        text = text.rstrip() + "\n\n## Pending\n"
+    return text.rstrip() + "\n" + "\n".join(lines) + "\n"
+
+
+def posted_date(value):
+    if isinstance(value, datetime):
+        return value.date()
+    return value if isinstance(value, date) else None
+
+
 def main():
     db = store.connect()
     s = store.get_settings(db)
+    db.close()
     if not s["roles"]:
         print("Sin roles configurados: nada que buscar")
         return
     CACHE.mkdir(parents=True, exist_ok=True)
-    existing = PIPELINE.read_text(encoding="utf-8") if PIPELINE.exists() else "# Pipeline\n\n## Pending\n"
-    known = set(existing.split())
+    if not PIPELINE.exists():
+        PIPELINE.write_text("# Pipeline\n\n## Pending\n", encoding="utf-8")
+    known = set(PIPELINE.read_text(encoding="utf-8").split())
     batch = CO / "batch" / "batch-input.tsv"
     if batch.exists():
         known |= set(batch.read_text(encoding="utf-8").split())
     cutoff = date.today() - timedelta(days=int(s["max_age_days"]))
-    added, skipped = [], 0
+    total, skipped = 0, 0
     for role, place, remote_only in searches(s):
+        added = []
         for frame in scrape(role, place, remote_only, s):
             for job in frame.to_dict("records"):
-                url = str(job.get("job_url_direct") or job.get("job_url") or "")
-                title, company = str(job.get("title") or ""), str(job.get("company") or "")
-                description = str(job.get("description") or "")
-                posted = job.get("date_posted")
+                url = clean(job.get("job_url_direct")) or clean(job.get("job_url"))
+                title, company, description = clean(job.get("title")), clean(job.get("company")), str(job.get("description") or "")
+                if description == "nan":
+                    description = ""
                 if not url.startswith("http") or url in known:
                     continue
-                if isinstance(posted, (date, datetime)) and (posted.date() if isinstance(posted, datetime) else posted) < cutoff:
+                posted = posted_date(job.get("date_posted"))
+                not_remote = str(job.get("is_remote")) == "False"
+                if (posted and posted < cutoff) or (remote_only and not_remote) or rejection(title, s) or len(description) < 200:
                     skipped += 1
                     continue
-                if remote_only and job.get("is_remote") is False or rejection(title, s) or len(description) < 200:
-                    skipped += 1
-                    continue
-                location = str(job.get("location") or place)
-                cache_path(url).write_text(f"# {title}\nCompany: {company}\nLocation: {location}\nSource: {job.get('site')}\n\n{description}",
-                                           encoding="utf-8")
+                location = clean(job.get("location")) or place
+                cache_path(url).write_text(f"# {title}\nCompany: {company}\nLocation: {location}\nSource: {clean(job.get('site'))}\n\n"
+                                           f"{description}", encoding="utf-8")
                 added.append(f"- [ ] {url} | {company} | {title} | {location}")
                 known.add(url)
-        print(f"  {role} @ {place}: {len(added)} nuevas acumuladas", flush=True)
-    if added:
-        PIPELINE.write_text(existing.rstrip() + "\n" + "\n".join(added) + "\n", encoding="utf-8")
-    print(f"JobSpy: {len(added)} ofertas nuevas, {skipped} descartadas por filtros")
+        if added:
+            PIPELINE.write_text(insert_pending(PIPELINE.read_text(encoding="utf-8"), added), encoding="utf-8")
+        total += len(added)
+        print(f"  {role} @ {place}: +{len(added)}", flush=True)
+    print(f"JobSpy: {total} ofertas nuevas, {skipped} descartadas por filtros")
 
 
 if __name__ == "__main__":

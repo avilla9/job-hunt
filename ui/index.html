@@ -37,6 +37,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .s-sent,.s-ok{background:var(--okbg);color:var(--ok)}
 .s-action,.s-running{background:var(--warnbg);color:var(--warn)}
 .s-failed,.s-error,.s-interrupted,.s-stopped{background:var(--badbg);color:var(--bad)}
+.s-partial{background:var(--warnbg);color:var(--warn)}
 .s-discarded,.s-paused{background:var(--mutebg);color:var(--mute)}
 .s-queued{background:var(--queuebg);color:var(--queue)}
 .ops{display:flex;gap:4px;flex-wrap:wrap;min-width:190px}
@@ -104,6 +105,7 @@ a{color:var(--accent)}
         <dl class="kv" id="svc"></dl>
         <div class="row" style="margin-top:16px">
           <button class="btn primary" id="btnRun">Ejecutar ahora</button>
+          <button class="btn" id="btnTest" title="Busca, evalúa 3 ofertas y rellena 2 formularios sin pulsar Enviar">Prueba segura (sin enviar)</button>
           <button class="btn danger" id="btnStop">Detener</button>
           <button class="btn" id="btnPause"></button>
           <button class="btn" id="btnSchedule"></button>
@@ -196,7 +198,7 @@ const fmt = t => t ? new Date(t).toLocaleString("es", {dateStyle: "short", timeS
 const SLUG = {"Enviada": "sent", "Acción requerida": "action", "Fallida": "failed", "Descartada": "discarded", "En cola": "queued"};
 const pill = s => `<span class="pill s-${SLUG[s] || "discarded"}">${esc(s)}</span>`;
 const dur = r => { if (!r.started_at) return "—"; const m = Math.round((new Date(r.finished_at || Date.now()) - new Date(r.started_at)) / 60000); return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60} min`; };
-const RUN_LABEL = {running: "En curso", ok: "Correcta", error: "Error", interrupted: "Interrumpida", stopped: "Detenida"};
+const RUN_LABEL = {running: "En curso", ok: "Correcta", partial: "Parcial", error: "Error", interrupted: "Interrumpida", stopped: "Detenida"};
 
 const LANG_OPTS = [["es","Español"],["en","Inglés"],["pt","Portugués"],["fr","Francés"],["de","Alemán"],["it","Italiano"],["nl","Neerlandés"],["pl","Polaco"]];
 const MODALITY_OPTS = [["remote","Remoto"],["hybrid","Híbrido"],["onsite","Presencial"]];
@@ -350,7 +352,7 @@ async function refresh() {
     <dt>Búsqueda</dt><dd>${esc(st.roles.slice(0, 3).join(", "))}${st.roles.length > 3 ? "…" : ""} · ${esc(st.modality.map(m => ({remote: "remoto", hybrid: "híbrido", onsite: "presencial"})[m]).join("/"))} · ${esc(st.locations.slice(0, 2).join(", ") || st.country)}</dd>
     <dt>IA</dt><dd>${st.ai_provider === "claude" ? "Claude (evalúa y envía)" : "Gemini (evalúa; envío manual)"}</dd>
     <dt>Consumo IA</dt><dd>${ev.done} evaluaciones · ${S.usage.applies} envíos (${(S.usage.tokens / 1e6).toFixed(2)} M tokens, ≈ $${S.usage.cost_usd} equivalente API)</dd>`;
-  $("#btnRun").disabled = !!run; $("#btnStop").disabled = !run;
+  $("#btnRun").disabled = !!run; $("#btnTest").disabled = !!run; $("#btnStop").disabled = !run;
   $("#btnPause").textContent = S.paused ? "Reanudar" : "Pausar";
   $("#btnSchedule").textContent = t.registered ? "Desactivar programación" : "Activar programación";
 
@@ -361,7 +363,7 @@ async function refresh() {
   $("#todo").innerHTML = todo.length ? todo.map(checkRow).join("") : '<div class="check"><span class="dot ok"></span><div>Todo listo.</div></div>';
   $("#connList").innerHTML = S.connections.map(checkRow).join("");
 
-  $("#runRows").innerHTML = S.runs.map(r => `<tr class="click ${r.id === selRun ? "sel" : ""}" data-run="${esc(r.id)}"><td>${fmt(r.started_at)}</td><td>${r.trigger === "manual" ? "Manual" : "Programada"}</td><td>${dur(r)}</td><td><span class="pill s-${esc(r.status)}">${esc(RUN_LABEL[r.status] || r.status)}</span></td><td class="muted">${esc(summary(r.summary))}</td></tr>`).join("") || '<tr><td colspan="5" class="muted">Sin ejecuciones.</td></tr>';
+  $("#runRows").innerHTML = S.runs.map(r => `<tr class="click ${r.id === selRun ? "sel" : ""}" data-run="${esc(r.id)}"><td>${fmt(r.started_at)}</td><td>${({manual: "Manual", test: "Prueba segura"})[r.trigger] || "Programada"}</td><td>${dur(r)}</td><td><span class="pill s-${esc(r.status)}">${esc(RUN_LABEL[r.status] || r.status)}</span></td><td class="muted">${esc(summary(r.summary))}</td></tr>`).join("") || '<tr><td colspan="5" class="muted">Sin ejecuciones.</td></tr>';
 
   const target = run || S.runs[0];
   if (target && target.id !== liveRun) { liveRun = target.id; liveAfter = 0; $("#liveLog").textContent = ""; }
@@ -370,7 +372,14 @@ async function refresh() {
 }
 
 function actionLabel(a) { return {"linkedin-login": "Iniciar sesión", patches: "Aplicar", schedule: "Activar", run: "Ejecutar", "test-ai": "Probar"}[a]; }
-function summary(s) { try { const o = JSON.parse(s || "{}"); return Object.entries(o).map(([k, v]) => `${k} ${v > 0 ? "+" : ""}${v}`).join(" · ") || "Sin cambios"; } catch { return ""; } }
+function summary(s) {
+  try {
+    const o = JSON.parse(s || "{}"), steps = o.pasos || {}; delete o.pasos;
+    const counts = Object.entries(o).map(([k, v]) => `${k} ${v > 0 ? "+" : ""}${v}`);
+    const bad = Object.entries(steps).filter(([, v]) => v !== "OK").map(([k, v]) => `${k}: ${v}`);
+    return [...counts, ...bad].join(" · ") || (Object.keys(steps).length ? "Todos los pasos OK" : "Sin cambios");
+  } catch { return ""; }
+}
 
 async function tailLive() {
   const rows = await get(`/api/logs?run=${encodeURIComponent(liveRun)}&after=${liveAfter}`);
@@ -405,6 +414,7 @@ document.addEventListener("click", async e => {
 });
 
 $("#btnRun").onclick = () => post("/api/run");
+$("#btnTest").onclick = () => post("/api/test-run");
 $("#btnStop").onclick = () => confirm("¿Detener la ejecución en curso?") && post("/api/stop");
 $("#btnPause").onclick = () => post("/api/pause", {paused: !S.paused});
 $("#btnSchedule").onclick = () => post("/api/schedule", {enabled: !S.task.registered});

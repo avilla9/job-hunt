@@ -83,6 +83,7 @@ prompt = replace(prompt, '- NEVER agree to hourly/contract rates, availability c
                  "if profile.get('availability', {}).get('available_for_contract') == 'Yes' else "
                  "'NEVER agree to hourly/contract rates, availability calendars, or set-your-rate flows. You are applying for FULL-TIME salaried positions only.'}",
                  "prompt.py")
+prompt = replace(prompt, "Fit Score: {job.get('fit_score', 'N/A')}/10", "Fit Score: {job.get('fit_score', 'N/A')}/100", "prompt.py")
 write("prompt.py", prompt)
 
 launcher = original("launcher.py")
@@ -97,6 +98,11 @@ launcher = replace(launcher, '            update_state(worker_id, total_cost=pre
                    '            with open(config.LOG_DIR / "usage.jsonl", "a", encoding="utf-8") as usage_file:\n'
                    '                usage_file.write(json.dumps({"ts": ts, "url": job.get("url"), **stats}) + "\\n")\n',
                    "launcher.py")
+launcher = replace(launcher, '    cmd = [\n        "claude",\n', '    cmd = [\n        __import__("shutil").which("claude.exe") or __import__("shutil").which("claude") or "claude",\n', "launcher.py")
+launcher = replace(launcher, '            add_event(f"[W{worker_id}] Launcher error: {str(e)[:40]}")\n            release_lock(job["url"])\n',
+                   '            add_event(f"[W{worker_id}] Launcher error: {str(e)[:40]}")\n'
+                   '            mark_result(job["url"], "failed", f"launcher_error: {str(e)[:80]}")\n', "launcher.py")
+launcher = replace(launcher, "Score: {job.get('fit_score', 'N/A')}/10", "Score: {job.get('fit_score', 'N/A')}/100", "launcher.py")
 write("launcher.py", launcher)
 
 chrome = original("chrome.py")

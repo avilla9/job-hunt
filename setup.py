@@ -86,7 +86,8 @@ def main():
     step("Preparando el buscador (career-ops)")
     npm = shutil.which("npm") or "npm"
     run([npm, "install", "--no-fund", "--no-audit", "--loglevel=error"], cwd=ROOT / "career-ops")
-    run([shutil.which("npx") or "npx", "playwright", "install", "chromium"], cwd=ROOT / "career-ops")
+    deps = ["--with-deps"] if sys.platform.startswith("linux") else []
+    run([shutil.which("npx") or "npx", "playwright", "install", *deps, "chromium"], cwd=ROOT / "career-ops")
     step("Aplicando salvaguardas")
     for patch in ("patch_careerops.py", "patch_applypilot.py", "patch_linkedin.py"):
         run([sys.executable, str(ROOT / patch)])

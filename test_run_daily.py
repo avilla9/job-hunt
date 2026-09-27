@@ -72,3 +72,23 @@ for title, want in {"Senior Full Stack Developer": None, "Desarrollador Backend 
     assert rd.rejection(title, S) == want, (title, rd.rejection(title, S))
 assert rd.rejection("Desenvolvedor Full Stack", {"excluded_tech": [], "languages": ["es", "en", "pt"]}) is None
 print("languages ok")
+
+import discover_jobspy as dj
+import platform_ops as po
+
+text = "# Pipeline\n\n## Pending\n- [ ] https://a | A | X\n\n## Processed\n- [x] done\n"
+out = dj.insert_pending(text, ["- [ ] https://b | B | Y"])
+assert out.index("https://b") < out.index("## Processed") and out.count("## Processed") == 1
+assert dj.insert_pending("# Pipeline\n", ["- [ ] https://c | C | Z"]).endswith("## Pending\n- [ ] https://c | C | Z\n")
+assert dj.clean(float("nan")) == "" and dj.clean("Dev | Ops") == "Dev / Ops" and dj.clean(None) == ""
+assert po.valid_times(["08:00", "25:00", "8.00", "7:05"]) == ["08:00", "7:05"]
+
+store.DB_PATH = Path(tempfile.mkdtemp()) / "runs.db"
+db = store.connect()
+db.execute("INSERT INTO runs(id, trigger, started_at, status, pid) VALUES('a','manual','x','running',111)")
+db.execute("INSERT INTO runs(id, trigger, started_at, status, pid) VALUES('b','manual','x','running',222)")
+db.commit()
+assert store.clear_stale_runs(db, lambda pid: pid == 222) == ["a"]
+assert [r[0] for r in db.execute("SELECT status FROM runs ORDER BY id")] == ["interrupted", "running"]
+db.close()
+print("robustness ok")

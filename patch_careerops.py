@@ -41,6 +41,23 @@ original = subprocess.run(["git", "-C", str(repo), "show", "HEAD:batch/batch-run
 if anchor not in original:
     raise SystemExit("patch failed: anchor not found in batch-runner.sh")
 patched = original.replace(anchor, fallback + anchor, 1)
+fixes = [
+    ('        report_artifacts=("$REPORTS_DIR/$report_num-"*.md)\n        shopt -u nullglob\n',
+     '        report_artifacts=("$REPORTS_DIR/$report_num-"*.md)\n        shopt -u nullglob\n'
+     '        local -a real_artifacts=()\n'
+     '        local artifact_candidate\n'
+     '        for artifact_candidate in ${report_artifacts[@]+"${report_artifacts[@]}"}; do\n'
+     '          [[ "$artifact_candidate" == *-RESERVED.md ]] || real_artifacts+=("$artifact_candidate")\n'
+     '        done\n'
+     '        report_artifacts=(${real_artifacts[@]+"${real_artifacts[@]}"})\n'),
+    ('        claude "${claude_args[@]}" > "$log_file" 2>&1 || exit_code=$?\n',
+     '        $(if command -v timeout >/dev/null 2>&1; then echo "timeout 900"; elif command -v gtimeout >/dev/null 2>&1; then echo "gtimeout 900"; fi) '
+     'claude "${claude_args[@]}" > "$log_file" 2>&1 || exit_code=$?\n'),
+]
+for old, new in fixes:
+    if old not in patched:
+        raise SystemExit(f"patch failed: batch-runner.sh: {old[:60]!r}")
+    patched = patched.replace(old, new, 1)
 if runner.read_text(encoding="utf-8") != patched:
     runner.write_text(patched, encoding="utf-8", newline="\n")
 

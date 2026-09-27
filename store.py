@@ -28,6 +28,7 @@ DEFAULTS = {
     "title_excludes": [],
     "target_companies": [],
     "accept_agencies": True,
+    "linkedin_last_ok": "",
     "ats_enabled": True,
     "jobspy_enabled": True,
     "linkedin_enabled": False,
@@ -75,10 +76,19 @@ def now():
 
 
 def connect():
-    db = sqlite3.connect(DB_PATH, timeout=30)
+    db = sqlite3.connect(DB_PATH, timeout=60)
     db.row_factory = sqlite3.Row
+    db.execute("PRAGMA journal_mode=WAL")
     db.executescript(SCHEMA)
     return db
+
+
+def clear_stale_runs(db, alive):
+    stale = [r["id"] for r in db.execute("SELECT id, pid FROM runs WHERE status='running'") if not alive(r["pid"])]
+    for run_id in stale:
+        db.execute("UPDATE runs SET status='interrupted', finished_at=? WHERE id=?", (now(), run_id))
+    db.commit()
+    return stale
 
 
 def get_settings(db):

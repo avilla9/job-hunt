@@ -59,12 +59,15 @@ def linkedin_logged_in():
     for db_file in (linkedin_profile_dir() / "Default" / "Network" / "Cookies", linkedin_profile_dir() / "Default" / "Cookies"):
         if db_file.exists():
             copy = Path(tempfile.gettempdir()) / "jobhunt-li-cookies.db"
-            shutil.copy(db_file, copy)
-            con = sqlite3.connect(copy)
             try:
-                return bool(con.execute("SELECT 1 FROM cookies WHERE host_key LIKE '%linkedin.com' AND name='li_at'").fetchone())
-            finally:
-                con.close()
+                shutil.copy(db_file, copy)
+                con = sqlite3.connect(copy)
+                try:
+                    return bool(con.execute("SELECT 1 FROM cookies WHERE host_key LIKE '%linkedin.com' AND name='li_at'").fetchone())
+                finally:
+                    con.close()
+            except (OSError, sqlite3.Error):
+                return True
     return False
 
 
@@ -73,10 +76,11 @@ def spawn_detached(cmd, cwd, log_file):
     if WINDOWS:
         detached = 0x00000008 | 0x00000200 | NO_WINDOW
         try:
-            return subprocess.Popen(cmd, cwd=cwd, stdout=out, stderr=subprocess.STDOUT, creationflags=detached | 0x01000000)
+            return subprocess.Popen(cmd, cwd=cwd, stdin=subprocess.DEVNULL, stdout=out, stderr=subprocess.STDOUT,
+                                    creationflags=detached | 0x01000000)
         except OSError:
-            return subprocess.Popen(cmd, cwd=cwd, stdout=out, stderr=subprocess.STDOUT, creationflags=detached)
-    return subprocess.Popen(cmd, cwd=cwd, stdout=out, stderr=subprocess.STDOUT, start_new_session=True)
+            return subprocess.Popen(cmd, cwd=cwd, stdin=subprocess.DEVNULL, stdout=out, stderr=subprocess.STDOUT, creationflags=detached)
+    return subprocess.Popen(cmd, cwd=cwd, stdin=subprocess.DEVNULL, stdout=out, stderr=subprocess.STDOUT, start_new_session=True)
 
 
 def open_detached(cmd):
@@ -93,10 +97,6 @@ def kill_tree(pid):
         os.killpg(os.getpgid(pid), signal.SIGTERM)
     except (ProcessLookupError, PermissionError):
         pass
-
-
-def new_process_group():
-    return {"creationflags": 0} if WINDOWS else {"start_new_session": True}
 
 
 def pid_alive(pid):
@@ -131,14 +131,24 @@ def _plist_path():
 CRON_TAG = "# job-hunt-autoapply"
 
 
+def valid_times(times):
+    import re
+    good = [t for t in times if re.fullmatch(r"([01]?\d|2[0-3]):[0-5]\d", t)]
+    if not good:
+        raise ValueError("Indica al menos una hora válida (HH:MM)")
+    return good
+
+
 def schedule(times):
+    times = valid_times(times)
+    path = os.environ.get("PATH", "")
     if WINDOWS:
         triggers = ",".join(f"(New-ScheduledTaskTrigger -Daily -At '{t}')" for t in times)
         exe, script = sys.executable, ROOT / "run_daily.py"
         silent = Path(exe).with_name("pythonw.exe")
         exe = str(silent) if silent.exists() else exe
         return _ps(f"$a=New-ScheduledTaskAction -Execute '{exe}' -Argument '\"{script}\" scheduled' -WorkingDirectory '{ROOT}';"
-                   "$s=New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Hours 12) -MultipleInstances IgnoreNew;"
+                   "$s=New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Hours 23) -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -WakeToRun;"
                    f"Register-ScheduledTask -TaskName '{TASK}' -Action $a -Trigger @({triggers}) -Settings $s "
                    "-Description 'Job Hunt: busca, puntua y aplica' -Force | Out-Null")
     if MAC:
@@ -151,6 +161,7 @@ def schedule(times):
                          "<key>Label</key><string>com.jobhunt.autoapply</string>"
                          f"<key>ProgramArguments</key><array>{args}</array>"
                          f"<key>WorkingDirectory</key><string>{ROOT}</string>"
+                         f"<key>EnvironmentVariables</key><dict><key>PATH</key><string>{path}</string></dict>"
                          f"<key>StartCalendarInterval</key><array>{intervals}</array>"
                          f"<key>StandardOutPath</key><string>{ROOT / 'logs' / 'launchd.log'}</string>"
                          f"<key>StandardErrorPath</key><string>{ROOT / 'logs' / 'launchd.log'}</string>"
@@ -161,7 +172,7 @@ def schedule(times):
     current = subprocess.run(["crontab", "-l"], capture_output=True, text=True).stdout
     lines = [l for l in current.splitlines() if CRON_TAG not in l]
     cmd = " ".join(f'"{a}"' for a in _run_cmd())
-    lines += [f"{int(t.split(':')[1])} {int(t.split(':')[0])} * * * cd \"{ROOT}\" && {cmd} >> logs/cron.log 2>&1 {CRON_TAG}"
+    lines += [f"{int(t.split(':')[1])} {int(t.split(':')[0])} * * * PATH=\"{path}\" && cd \"{ROOT}\" && {cmd} >> logs/cron.log 2>&1 {CRON_TAG}"
               for t in times]
     r = subprocess.run(["crontab", "-"], input="\n".join(lines) + "\n", capture_output=True, text=True)
     return r.returncode, r.stderr.strip()

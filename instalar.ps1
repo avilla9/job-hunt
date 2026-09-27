@@ -7,7 +7,8 @@ function Refresh-Path {
 }
 
 function Ensure($command, $wingetId, $name) {
-  if (Get-Command $command -ErrorAction SilentlyContinue) { return }
+  $found = Get-Command $command -ErrorAction SilentlyContinue
+  if ($found -and $found.Source -notlike "*WindowsApps*") { return }
   if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
     throw "Falta $name y no hay winget. Instala $name manualmente y vuelve a ejecutar Instalar."
   }
