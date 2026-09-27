@@ -257,7 +257,7 @@ def main(trigger="scheduled"):
                 sync(DB, RUN_ID)
                 run([AP_EXE, "apply", "--min-score", str(round(float(s["min_score"]) * 20)), "--workers", "1", "--limit", "1000"], ROOT, AP_ENV,
                     timeout=8 * 3600)
-        if s["linkedin_enabled"] and not (po.linkedin_profile_dir() / "Default").exists():
+        if s["linkedin_enabled"] and not po.linkedin_logged_in():
             log("LinkedIn: aún no has iniciado sesión en el perfil del bot (Panel → Iniciar sesión); se omite")
         elif s["linkedin_enabled"] and linkedin_due(DB):
             run([po.venv_python("linkedin-bot/.venv"), "runAiBot.py"], LI,

@@ -53,6 +53,21 @@ def linkedin_profile_dir():
     return Path.home() / ".auto-job-apply-profile"
 
 
+def linkedin_logged_in():
+    import sqlite3
+    import tempfile
+    for db_file in (linkedin_profile_dir() / "Default" / "Network" / "Cookies", linkedin_profile_dir() / "Default" / "Cookies"):
+        if db_file.exists():
+            copy = Path(tempfile.gettempdir()) / "jobhunt-li-cookies.db"
+            shutil.copy(db_file, copy)
+            con = sqlite3.connect(copy)
+            try:
+                return bool(con.execute("SELECT 1 FROM cookies WHERE host_key LIKE '%linkedin.com' AND name='li_at'").fetchone())
+            finally:
+                con.close()
+    return False
+
+
 def spawn_detached(cmd, cwd, log_file):
     out = open(log_file, "w", encoding="utf-8")
     if WINDOWS:

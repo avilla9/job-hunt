@@ -61,7 +61,7 @@ def connections(s):
          "hint": "Sin CAPTCHA, cuentas ni contraseñas; tope de LinkedIn; salario por oferta", "action": "patches"},
     ]
     if s["linkedin_enabled"]:
-        items.append({"id": "linkedin", "name": "Sesión de LinkedIn (perfil del bot)", "ok": (po.linkedin_profile_dir() / "Default").exists(),
+        items.append({"id": "linkedin", "name": "Sesión de LinkedIn (perfil del bot)", "ok": po.linkedin_logged_in(),
                       "hint": "Inicia sesión una vez en la ventana que se abre y ciérrala", "action": "linkedin-login"})
     return items
 
