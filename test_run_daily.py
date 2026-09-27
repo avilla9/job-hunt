@@ -92,3 +92,15 @@ assert store.clear_stale_runs(db, lambda pid: pid == 222) == ["a"]
 assert [r[0] for r in db.execute("SELECT status FROM runs ORDER BY id")] == ["interrupted", "running"]
 db.close()
 print("robustness ok")
+
+assert rd.SECURITY_RX.search("The password reset email has been sent")
+assert rd.SECURITY_RX.search("Now I'm on the A.Team signup form. I'll fill in Armando's details.")
+assert not rd.SECURITY_RX.search("The page requires a login. RESULT:LOGIN_ISSUE")
+ap2 = sqlite3.connect(":memory:")
+ap2.execute("CREATE TABLE jobs(url TEXT PRIMARY KEY,title,site,application_url,tailored_resume_path,fit_score,discovered_at,"
+            "apply_status,apply_error,applied_at,salary)")
+rd.enqueue(ap2, [{"company": "A.Team", "role": "Senior Engineer", "url": "https://remotive.com/x", "score": 4.8, "pdf": "cv.pdf",
+                  "suspicious": False, "salary": ""}], 3.5, 30)
+assert ap2.execute("SELECT apply_status, apply_error FROM jobs").fetchone() == ("manual", "manual ATS: plataforma que exige cuenta")
+assert rd.classify("manual", "manual ATS: plataforma que exige cuenta")[0] == "Acción requerida"
+print("security ok")

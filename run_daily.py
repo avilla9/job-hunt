@@ -35,8 +35,13 @@ ACTIONS = {
     "login_issue": "Aplicar manualmente: el portal pide cuenta o login",
     "sso_required": "Aplicar manualmente: el portal pide login con Google/Microsoft",
     "email_only": "Enviar CV por email según indica la oferta",
-    "manual ATS": "Aplicar manualmente: portal marcado como manual",
+    "manual ATS": "Aplicar manualmente: la plataforma exige cuenta o login",
+    "security_review": "Revisar: el agente mencionó contraseña o registro en esta oferta",
 }
+ACCOUNT_COMPANIES = ("a.team", "toptal", "turing", "upwork", "mercor", "braintrust", "arc.dev", "lemon.io", "gun.io", "x-team",
+                     "crossover", "andela", "outlier", "remotasks", "contra", "fiverr")
+SECURITY_RX = re.compile(r"forgot password|password reset|reset (the )?password|reset email|password (we|I) (created|typed|entered)|"
+                         r"created (an |the |a new )?account|sign ?up form|registration form|fill(ed|ing)? in .{0,40}(sign ?up|registration)", re.I)
 DISCARDED = ("expired", "not_eligible_location", "not_eligible_work_auth", "older than", "suspicious", "discarded")
 
 RUN_ID = None
@@ -161,6 +166,8 @@ def enqueue(ap, reports, min_score, max_age_days, reject=lambda title: None, cv_
         reason = reject(r["role"])
         if reason:
             status, error = "expired", f"discarded: {reason}"
+        elif any(c in r["company"].lower() for c in ACCOUNT_COMPANIES):
+            status, error = "manual", "manual ATS: plataforma que exige cuenta"
         ensure_resume_text(r["pdf"], cv_md)
         cur = ap.execute(
             "INSERT OR IGNORE INTO jobs(url,title,site,application_url,tailored_resume_path,fit_score,discovered_at,apply_status,apply_error,salary)"
@@ -303,8 +310,30 @@ def apply(s, test=False):
         env = {**AP_ENV, "APPLYPILOT_DIR": str(test_applypilot_dir())}
         extra = ["--limit", "2", "--dry-run"]
         log("PRUEBA: el envío rellena formularios en una copia de la cola y NO pulsa Enviar")
-    return step("Envío", run([AP_EXE, "apply", "--min-score", str(round(float(s["min_score"]) * 20)), "--workers", "1", *extra],
-                             ROOT, env, timeout=remaining("apply")))
+    started = time.time()
+    code = run([AP_EXE, "apply", "--min-score", str(round(float(s["min_score"]) * 20)), "--workers", "1",
+                "--model", s["apply_model"], *extra], ROOT, env, timeout=remaining("apply"))
+    audit_agent_logs(Path(env["APPLYPILOT_DIR"]) / "logs", started, test)
+    return step("Envío", code)
+
+
+def audit_agent_logs(log_dir, since, test=False):
+    alerts = []
+    for f in log_dir.glob("claude_*.txt") if log_dir.exists() else []:
+        if f.stat().st_mtime >= since and SECURITY_RX.search(f.read_text(encoding="utf-8", errors="replace")):
+            alerts.append(f.stem.split("_", 4)[-1])
+    if alerts:
+        log(f"⚠ AUDITORÍA: el agente mencionó contraseña/registro en: {', '.join(alerts)} (revisa esas ofertas)")
+        STEPS["Auditoría de seguridad"] = f"ERROR (revisar {len(alerts)}: {', '.join(alerts)[:120]})"
+        if not test and ap_ready():
+            ap = sqlite3.connect(AP_DB)
+            for site in alerts:
+                ap.execute("UPDATE jobs SET apply_status='manual', apply_error='security_review' "
+                           "WHERE site LIKE ? AND last_attempted_at >= ?", (f"%{site[:15]}%", datetime.fromtimestamp(since).isoformat()))
+            ap.commit()
+            ap.close()
+    else:
+        STEPS["Auditoría de seguridad"] = "OK"
 
 
 def linkedin(s, test=False):

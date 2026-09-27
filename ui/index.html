@@ -249,7 +249,8 @@ const CONFIG_HTML = SEARCH_HTML +
     field("eval_parallel", "Evaluaciones en paralelo", "number")) +
   card("Inteligencia artificial",
     `<label class="f"><span>Proveedor</span><select name="ai_provider"><option value="claude">Claude (evalúa y envía)</option><option value="gemini">Gemini (evalúa; envío manual)</option></select></label>` +
-    field("gemini_api_key", "Clave de Gemini (solo si usas Gemini)", "password")) +
+    field("gemini_api_key", "Clave de Gemini (solo si usas Gemini)", "password") +
+    `<label class="f"><span>Modelo para rellenar formularios</span><select name="apply_model"><option value="sonnet">Sonnet (recomendado: sigue mejor las reglas)</option><option value="haiku">Haiku (más barato)</option><option value="opus">Opus (máxima fiabilidad, más caro)</option></select></label>`) +
   card("Programación", list("schedule_times", "Horas de ejecución diaria (HH:MM, separadas por coma)", "08:00, 20:00"));
 
 function fillForm(form, s) {

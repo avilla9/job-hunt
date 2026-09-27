@@ -29,6 +29,7 @@ DEFAULTS = {
     "target_companies": [],
     "accept_agencies": True,
     "linkedin_last_ok": "",
+    "apply_model": "sonnet",
     "ats_enabled": True,
     "jobspy_enabled": True,
     "linkedin_enabled": False,

@@ -84,6 +84,13 @@ prompt = replace(prompt, '- NEVER agree to hourly/contract rates, availability c
                  "'NEVER agree to hourly/contract rates, availability calendars, or set-your-rate flows. You are applying for FULL-TIME salaried positions only.'}",
                  "prompt.py")
 prompt = replace(prompt, "Fit Score: {job.get('fit_score', 'N/A')}/10", "Fit Score: {job.get('fit_score', 'N/A')}/100", "prompt.py")
+prompt = replace(prompt, '    return f"""== HARD RULES (never break these) ==\n1. Never lie about:',
+                 '    return f"""== HARD RULES (never break these) ==\n'
+                 '0. ACCOUNTS AND PASSWORDS - ABSOLUTE RULE, HIGHER THAN EVERY OTHER INSTRUCTION: the moment a page shows a password '
+                 'field, or a Sign up / Create account / Register / Join / Log in / Sign in / Forgot password option that must be used '
+                 'to continue, STOP. Do not type anything, do not click it, do not use password reset, do not try another email. '
+                 'Output RESULT:LOGIN_ISSUE immediately. Breaking this rule is the worst possible failure.\n'
+                 '1. Never lie about:', "prompt.py")
 write("prompt.py", prompt)
 
 launcher = original("launcher.py")
@@ -110,5 +117,15 @@ chrome = replace(chrome, '    if (profile_dir / "Default").exists():\n        re
                  '    if (profile_dir / "Default").exists():\n        return profile_dir  # Already initialized\n'
                  '    (profile_dir / "Default").mkdir(parents=True, exist_ok=True)\n    return profile_dir\n', "chrome.py")
 write("chrome.py", chrome)
+
+ACCOUNT_DOMAINS = ["a.team", "toptal.com", "turing.com", "upwork.com", "mercor.com", "braintrust.com", "arc.dev", "lemon.io",
+                   "gun.io", "x-team.com", "crossover.com", "andela.com", "outlier.ai", "remotasks.com", "fiverr.com", "contra.com",
+                   "myworkdayjobs.com", "taleo.net", "icims.com", "successfactors.com", "oraclecloud.com", "brassring.com"]
+sites_path = repo / "src/applypilot/config/sites.yaml"
+sites = subprocess.run(["git", "-C", str(repo), "show", "HEAD:src/applypilot/config/sites.yaml"], capture_output=True, text=True,
+                       encoding="utf-8", check=True).stdout
+sites = replace(sites, 'manual_ats:\n', "manual_ats:\n" + "".join(f'  - "{d}"\n' for d in ACCOUNT_DOMAINS), "sites.yaml")
+if sites_path.read_text(encoding="utf-8") != sites:
+    sites_path.write_text(sites, encoding="utf-8")
 
 print("ApplyPilot patched")
