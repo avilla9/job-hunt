@@ -107,6 +107,22 @@ def profile_from_cv(path, s):
     return {k: data[k] for k in keep if k in data}
 
 
+REPLACE_FROM_CV = ("full_name", "email", "phone", "city", "country", "linkedin_url", "github_url", "headline", "current_company",
+                   "current_title", "years_experience", "education", "seniority", "is_tech", "archetypes", "cv_md")
+MERGE_FROM_CV = ("roles", "title_keywords", "title_excludes")
+
+
+def merge_profile(s, data):
+    update = {k: data[k] for k in REPLACE_FROM_CV if data.get(k) not in (None, "", [])}
+    for key in MERGE_FROM_CV:
+        update[key] = list(dict.fromkeys([*s[key], *data.get(key, [])]))[:40]
+    if not s["onboarded"] and data.get("currency"):
+        update["currency"] = data["currency"]
+    if not s["locations"] and (data.get("city") or data.get("country")):
+        update["locations"] = [x for x in (data.get("city"), data.get("country")) if x]
+    return update
+
+
 def md_to_html(md):
     out, in_list = [], False
     for line in md.splitlines():

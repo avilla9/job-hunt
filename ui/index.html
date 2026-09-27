@@ -178,7 +178,7 @@ a{color:var(--accent)}
 
   <div class="step" data-step="3">
     <form id="wizardForm" class="grid" style="gap:16px"></form>
-    <div class="row" style="margin-top:16px"><button class="btn" id="wzBack3">Atrás</button><button class="btn primary" id="wzFinish">Guardar y empezar</button></div>
+    <div class="row" style="margin-top:16px"><button class="btn" id="wzBack3">Atrás</button><button class="btn primary" id="wzFinish">Empezar a buscar</button></div>
   </div>
 </div></div>
 
@@ -221,7 +221,7 @@ const PROFILE_HTML = card("Datos personales",
     field("work_authorization", "Autorización de trabajo (tal como la responderías)", "text", "wide") +
     `<label class="f"><span>¿Necesitas patrocinio de visa?</span><select name="requires_sponsorship"><option>No</option><option>Yes</option></select></label>` +
     `<label class="f"><span>¿Dispuesto a mudarte?</span><select name="willing_to_relocate"><option>No</option><option>Yes</option></select></label>` +
-    lines("standard_answers", "Otras respuestas fijas (una por línea, «Pregunta: respuesta»). Lo que no pongas se deja en blanco; nunca se inventa.",
+    lines("standard_answers", "Respuestas fijas para formularios (una por línea, «Pregunta: respuesta»)",
       "Are you 18 or older?: Yes\nHow did you hear about us?: Job board"));
 
 const SEARCH_HTML = card("Qué buscas",
@@ -299,17 +299,16 @@ async function loadForms() {
   P = await get("/api/profile");
   fillForm($("#profileForm"), P); fillForm($("#configForm"), P);
 }
-$("#profileForm").innerHTML = PROFILE_HTML + card("Currículum", `<div class="wide muted">Sube un CV nuevo para volver a analizarlo (no se guarda hasta que confirmes).</div><input type="file" id="cvFile" accept=".pdf,.docx,.md,.txt" class="wide"><div class="row wide"><button type="button" class="btn" id="btnReCv">Analizar CV nuevo</button><span id="reCvMsg" class="muted"></span></div>`) +
+$("#profileForm").innerHTML = PROFILE_HTML + card("Currículum", `<div class="wide muted">Sube tu CV actualizado: la IA actualiza tu perfil y lo aplica sola (tus filtros no se tocan).</div><input type="file" id="cvFile" accept=".pdf,.docx,.md,.txt" class="wide"><div class="row wide"><button type="button" class="btn" id="btnReCv">Subir y aplicar</button><span id="reCvMsg" class="muted"></span></div>`) +
   `<div class="row"><button class="btn primary" type="submit">Guardar perfil</button></div>`;
 $("#configForm").innerHTML = CONFIG_HTML + `<div class="row"><button class="btn primary" type="submit">Guardar y aplicar</button></div>`;
-$("#wizardForm").innerHTML = `<div class="card"><h2>3 · Revisa tus datos</h2><p class="muted">Rellenado a partir de tu CV. Corrige lo que haga falta.</p></div>` + PROFILE_HTML + SEARCH_HTML;
+$("#wizardForm").innerHTML = `<div class="card"><h2>3 · Revisa tus datos</h2><p class="muted">Rellenado a partir de tu CV. Si todo está bien, pulsa «Empezar a buscar» abajo: buscará ahora y luego cada día sola.</p></div>` + PROFILE_HTML + SEARCH_HTML;
 
 for (const id of ["#profileForm", "#configForm"]) {
   $(id).onsubmit = async e => {
     e.preventDefault();
     const v = readForm(e.target), err = validate(v);
     if (err) return toast(err);
-    if (id === "#profileForm" && P && P._newCv) Object.assign(v, {cv_md: P.cv_md, archetypes: P.archetypes});
     document.activeElement.blur();
     await post("/api/settings", v);
     loadForms();
@@ -325,10 +324,10 @@ async function fileToPayload(input) {
 $("#btnReCv").onclick = async () => {
   try {
     $("#reCvMsg").innerHTML = '<span class="spinner"></span> Analizando (puede tardar un minuto)…';
-    const j = await post("/api/onboarding/analyze", await fileToPayload($("#cvFile")), true);
+    const j = await post("/api/onboarding/analyze", {...await fileToPayload($("#cvFile")), apply: true}, true);
     if (!j.ok) throw new Error(j.message);
-    P = {...P, ...j.profile, _newCv: true}; fillForm($("#profileForm"), P);
-    $("#reCvMsg").textContent = "Revisa los datos y pulsa «Guardar perfil».";
+    await loadForms();
+    $("#reCvMsg").textContent = "Perfil actualizado y aplicado automáticamente. Puedes ajustar lo que quieras.";
   } catch (e) { $("#reCvMsg").textContent = e.message; }
 };
 

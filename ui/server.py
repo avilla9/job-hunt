@@ -183,6 +183,9 @@ def save_settings(values):
     db = store.connect()
     store.save_settings(db, values)
     s = store.get_settings(db)
+    if not int(s["salary_fallback_year"] or 0) and int(s["salary_min_month"] or 0):
+        store.save_settings(db, {"salary_fallback_year": int(s["salary_min_month"]) * 12})
+        s = store.get_settings(db)
     db.close()
     if s["onboarded"]:
         onboarding.ensure_cv_pdf(s)
@@ -201,13 +204,19 @@ def analyze_cv(body):
     db = store.connect()
     s = store.get_settings(db)
     db.close()
-    return onboarding.profile_from_cv(path, s)
+    profile = onboarding.profile_from_cv(path, s)
+    if body.get("apply") and s["onboarded"]:
+        save_settings(onboarding.merge_profile(s, profile))
+    return profile
 
 
 def finish_onboarding(values):
     values["onboarded"] = True
     values["generated_modes"] = True
-    save_settings(values)
+    s = save_settings(values)
+    po.schedule(s["schedule_times"])
+    task_info(fresh=True)
+    start_run()
 
 
 def update_app():
@@ -285,10 +294,10 @@ class Handler(BaseHTTPRequestHandler):
                 ok, msg = True, "Configuración guardada y aplicada"
             elif path == "/api/onboarding/analyze":
                 payload = {"profile": analyze_cv(body)}
-                ok, msg = True, "CV analizado: revisa y confirma tus datos"
+                ok, msg = True, "Perfil actualizado desde tu CV y aplicado" if body.get("apply") else "CV analizado"
             elif path == "/api/onboarding/finish":
                 finish_onboarding(body)
-                ok, msg = True, "Perfil guardado. ¡Listo para buscar!"
+                ok, msg = True, "Listo: primera búsqueda en marcha y programada cada día"
             elif path == "/api/test-ai":
                 db = store.connect()
                 s = store.get_settings(db)
