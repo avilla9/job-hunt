@@ -224,7 +224,7 @@ def source_rows(ap, reports=(), min_score=3.5, reject=lambda title: None, manual
         path = LI / "all excels" / name
         if path.exists():
             for r in csv.DictReader(path.open(encoding="utf-8", errors="replace")):
-                if r.get("Job Link"):
+                if r.get("Job Link") and (state == "Fallida" or r.get("External Job link") == "Easy Applied"):
                     rows.append({"channel": "LinkedIn Easy Apply", "company": r.get("Company", ""), "role": r.get("Title", ""),
                                  "url": r["Job Link"], "status": state, "action": "",
                                  "detail": r.get("Assumed Reason", "") or "", "score": None, "resume": r.get("Resume", "")})
@@ -352,7 +352,8 @@ def linkedin(s, test=False):
         log("PRUEBA: LinkedIn rellena Easy Apply y se detiene antes de enviar")
     try:
         code = run([po.venv_python("linkedin-bot/.venv"), "runAiBot.py"], LI,
-                   {"LINKEDIN_DAILY_CAP": "2" if test else str(s["linkedin_cap"])}, timeout=remaining("linkedin"))
+                   {"LINKEDIN_DAILY_CAP": "2" if test else str(s["linkedin_cap"]), "PYTHONIOENCODING": "utf-8"},
+                   timeout=600 if test else remaining("linkedin"))
     finally:
         if test:
             propagate(s)

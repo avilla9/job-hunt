@@ -60,7 +60,7 @@ def connections(s):
     ]
     if s["linkedin_enabled"]:
         items.append({"id": "linkedin", "name": "Sesión de LinkedIn (perfil del bot)", "ok": po.linkedin_logged_in(),
-                      "hint": "Inicia sesión una vez en la ventana que se abre y ciérrala", "action": "linkedin-login"})
+                      "hint": "Inicia sesión una vez en la ventana que se abre y ciérrala. LinkedIn debe estar en inglés (Settings → Account preferences → Display language → English)", "action": "linkedin-login"})
     return items
 
 
