@@ -4,28 +4,32 @@ from pathlib import Path
 repo = Path(__file__).parent / "career-ops"
 runner = repo / "batch" / "batch-runner.sh"
 anchor = '  echo "--- Processing offer #$id: $url (report $report_num, attempt $((retries + 1)))"\n'
-fallback = r'''  if [[ "$url" == *gh_jid=* && "$url" == *board=* ]]; then
-    local gh_id gh_board
-    gh_id=$(printf '%s' "$url" | sed -nE 's/.*[?&]gh_jid=([0-9]+).*/\1/p')
-    gh_board=$(printf '%s' "$url" | sed -nE 's/.*[?&]board=([A-Za-z0-9_-]+).*/\1/p')
-    if [[ -n "$gh_id" && -n "$gh_board" ]] && curl -s --max-time 30 --proto =https \
-      "https://boards-api.greenhouse.io/v1/boards/$gh_board/jobs/$gh_id" > "$jd_file" && [[ $(wc -c < "$jd_file") -gt 1000 ]]; then
-      echo "    JD via Greenhouse API (embedded board)"
-    fi
-  fi
-  local jd_cache
+fallback = r'''  local jd_special jd_cache gh_id gh_board
+  jd_special="${jd_file}.special"
   jd_cache="$PROJECT_DIR/data/jd-cache/$(node -e "process.stdout.write(require('crypto').createHash('sha1').update(process.argv[1]).digest('hex'))" "$url").txt"
+  gh_id=$(printf '%s' "$url" | sed -nE 's/.*[?&]gh_jid=([0-9]+).*/\1/p')
+  gh_board=$(printf '%s' "$url" | sed -nE 's/.*[?&]board=([A-Za-z0-9_-]+).*/\1/p')
   if [[ -s "$jd_cache" ]]; then
-    cp "$jd_cache" "$jd_file"
+    cp "$jd_cache" "$jd_special"
     echo "    JD via local cache"
+  elif [[ -n "$gh_id" && -n "$gh_board" ]] && curl -s --max-time 30 --proto =https \
+    "https://boards-api.greenhouse.io/v1/boards/$gh_board/jobs/$gh_id" > "$jd_special" && [[ $(wc -c < "$jd_special") -gt 1000 ]]; then
+    echo "    JD via Greenhouse API (embedded board)"
+  elif node "$PROJECT_DIR/fetch-jd.mjs" "$url" > "$jd_special" 2>/dev/null && [[ -s "$jd_special" ]]; then
+    echo "    JD via ATS public API"
+  elif [[ "$url" == *.icims.com/* ]] && curl -sL --max-time 30 --proto =https "${url%%\?*}?in_iframe=1" > "$jd_special" \
+    && [[ $(wc -c < "$jd_special") -gt 5000 ]]; then
+    echo "    JD via iCIMS iframe"
+  else
+    : > "$jd_special"
+  fi
+  if [[ -s "$jd_special" ]]; then
+    mv -f "$jd_special" "$jd_file"
+  else
+    rm -f "$jd_special"
   fi
   if [[ ! -s "$jd_file" ]]; then
-    if node "$PROJECT_DIR/fetch-jd.mjs" "$url" > "$jd_file" 2>/dev/null && [[ -s "$jd_file" ]]; then
-      echo "    JD via ATS public API"
-    elif [[ "$url" == *.icims.com/* ]] && curl -sL --max-time 30 --proto =https "${url%%\?*}?in_iframe=1" > "$jd_file" \
-      && [[ $(wc -c < "$jd_file") -gt 5000 ]]; then
-      echo "    JD via iCIMS iframe"
-    elif node "$PROJECT_DIR/browser-extract.mjs" "$url" --mode jd --max-chars 20000 2>/dev/null \
+    if node "$PROJECT_DIR/browser-extract.mjs" "$url" --mode jd --max-chars 20000 2>/dev/null \
       | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const t=JSON.parse(s).text||'';if(t.split(/\s+/).length>=80)process.stdout.write(t);else process.exit(1)}catch{process.exit(1)}})" > "$jd_file"; then
       echo "    JD via headless browser"
     else
