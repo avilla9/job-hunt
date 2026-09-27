@@ -1,0 +1,10 @@
+Job Hunt descarga y usa, sin redistribuirlos, estos proyectos de código abierto (versiones fijadas en vendor.lock):
+
+- career-ops — https://github.com/santifer/career-ops — Licencia MIT
+- ApplyPilot — https://github.com/Pickle-Pixel/ApplyPilot — Licencia AGPL-3.0
+- Auto_job_applier_linkedIn — https://github.com/GodsScion/Auto_job_applier_linkedIn — Licencia MIT
+- JobSpy (python-jobspy) — https://github.com/speedyapply/JobSpy — Licencia MIT
+
+Las modificaciones que Job Hunt aplica a esos proyectos están íntegramente en patch_careerops.py,
+patch_applypilot.py y patch_linkedin.py de este repositorio, disponibles bajo sus mismas licencias
+(en el caso de ApplyPilot, AGPL-3.0).

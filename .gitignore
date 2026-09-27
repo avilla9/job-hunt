@@ -1,0 +1,13 @@
+career-ops/
+ApplyPilot/
+linkedin-bot/
+.venv-ap/
+applypilot-data/
+profile/
+logs/
+jobhunt.db
+jobhunt.db-*
+STOP
+__pycache__/
+*.pyc
+.env

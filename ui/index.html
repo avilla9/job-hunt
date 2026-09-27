@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Job Hunt</title>
+<style>
+:root{--bg:#f6f7f9;--panel:#fff;--text:#16181d;--muted:#667085;--line:#e4e7ec;--accent:#2f5bea;--ok:#157f3d;--okbg:#e3f4e8;--warn:#9a6700;--warnbg:#fff4d6;--bad:#b42318;--badbg:#fde8e7;--mute:#475467;--mutebg:#eef0f3;--queue:#2f5bea;--queuebg:#e8eefe}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1115;--panel:#171a21;--text:#e7e9ee;--muted:#98a2b3;--line:#2a2f3a;--accent:#7c9bff;--ok:#5fd08a;--okbg:#15301f;--warn:#f0c14b;--warnbg:#332a10;--bad:#ff8a80;--badbg:#3a1714;--mute:#b0b8c4;--mutebg:#23272f;--queue:#9db4ff;--queuebg:#1c2645}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{display:flex;align-items:center;gap:24px;padding:0 24px;height:56px;background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+header h1{font-size:16px;margin:0;font-weight:650;letter-spacing:-.01em}
+nav{display:flex;gap:4px;overflow-x:auto}
+nav button{background:none;border:0;color:var(--muted);padding:8px 12px;border-radius:8px;font:inherit;cursor:pointer;white-space:nowrap}
+nav button.active{background:var(--mutebg);color:var(--text);font-weight:600}
+main{max-width:1280px;margin:0 auto;padding:24px}
+section{display:none}section.active{display:block}
+.grid{display:grid;gap:16px}
+.cols-2{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr)}
+.tiles{grid-template-columns:repeat(auto-fit,minmax(120px,1fr))}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+.card h2{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:0 0 12px;font-weight:600}
+.tile .n{font-size:28px;font-weight:650;font-variant-numeric:tabular-nums}
+.tile .l{color:var(--muted);font-size:13px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.spread{justify-content:space-between}
+.kv{display:grid;grid-template-columns:140px 1fr;gap:6px 12px;font-size:13px}
+.kv dt{color:var(--muted)}.kv dd{margin:0;font-variant-numeric:tabular-nums}
+button.btn,a.btn{border:1px solid var(--line);background:var(--panel);color:var(--text);padding:7px 12px;border-radius:8px;font:inherit;cursor:pointer}
+button.btn:hover{border-color:var(--muted)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.danger{color:var(--bad)}
+button.sm,a.sm{padding:3px 8px;font-size:12px}
+button:disabled{opacity:.5;cursor:not-allowed}
+.pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.s-sent,.s-ok{background:var(--okbg);color:var(--ok)}
+.s-action,.s-running{background:var(--warnbg);color:var(--warn)}
+.s-failed,.s-error,.s-interrupted,.s-stopped{background:var(--badbg);color:var(--bad)}
+.s-discarded,.s-paused{background:var(--mutebg);color:var(--mute)}
+.s-queued{background:var(--queuebg);color:var(--queue)}
+.ops{display:flex;gap:4px;flex-wrap:wrap;min-width:190px}
+a.btn{text-decoration:none;display:inline-block}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;color:var(--muted);font-weight:600;padding:8px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
+tr.click{cursor:pointer}tr.click:hover td,tr.sel td{background:var(--mutebg)}
+.table-wrap{overflow-x:auto}
+.muted{color:var(--muted)}
+pre.log{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;max-height:480px;overflow:auto;font:12px/1.5 ui-monospace,Consolas,monospace;white-space:pre-wrap;margin:0}
+input,select,textarea{font:inherit;color:var(--text);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 10px;width:100%}
+textarea{min-height:90px;resize:vertical}
+input[type=checkbox],input[type=radio]{width:18px;height:18px;accent-color:var(--accent);margin:0}
+label.f{display:grid;gap:4px;font-size:13px}
+label.f span,.f-title{color:var(--muted);font-size:13px}
+.wide{grid-column:1/-1}
+.form{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.opts{display:flex;gap:14px;flex-wrap:wrap}
+.opts label{display:flex;gap:6px;align-items:center;font-size:13px}
+.chips button{border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:999px;padding:4px 10px;font:inherit;font-size:12px;cursor:pointer}
+.chips button.active{background:var(--text);color:var(--panel);border-color:var(--text)}
+.check{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line)}
+.check:last-child{border:0}
+.dot{width:10px;height:10px;border-radius:50%;margin-top:5px;flex:none}
+.dot.ok{background:var(--ok)}.dot.no{background:var(--warn)}
+#toast{position:fixed;bottom:20px;right:20px;background:var(--text);color:var(--panel);padding:10px 14px;border-radius:8px;opacity:0;transition:opacity .2s;max-width:420px;z-index:40}
+#toast.show{opacity:1}
+dialog{border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--text);max-width:640px;width:calc(100% - 32px)}
+dialog::backdrop{background:rgba(0,0,0,.35)}
+a{color:var(--accent)}
+#wizard{position:fixed;inset:0;background:var(--bg);z-index:30;overflow:auto;display:none}
+#wizard.show{display:block}
+#wizard .box{max-width:760px;margin:40px auto;padding:0 16px}
+#wizard h1{font-size:22px;margin:0 0 4px}
+.steps{display:flex;gap:8px;margin:16px 0}
+.steps span{flex:1;height:4px;border-radius:4px;background:var(--line)}
+.steps span.on{background:var(--accent)}
+.step{display:none}.step.on{display:block}
+.choice{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:12px;cursor:pointer;margin-bottom:8px}
+.choice:has(input:checked){border-color:var(--accent)}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (max-width:860px){.cols-2{grid-template-columns:1fr}main{padding:16px}header{padding:0 16px;gap:12px}.kv{grid-template-columns:110px 1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Job Hunt</h1>
+  <nav id="nav">
+    <button data-tab="panel" class="active">Panel</button>
+    <button data-tab="apps">Solicitudes</button>
+    <button data-tab="runs">Ejecuciones</button>
+    <button data-tab="profile">Perfil</button>
+    <button data-tab="config">Configuración</button>
+    <button data-tab="conn">Conexiones</button>
+  </nav>
+</header>
+<main>
+  <section id="panel" class="active">
+    <div class="grid tiles" id="tiles"></div>
+    <div class="grid cols-2" style="margin-top:16px">
+      <div class="card">
+        <div class="row spread"><h2>Servicio</h2><span id="svcPill"></span></div>
+        <dl class="kv" id="svc"></dl>
+        <div class="row" style="margin-top:16px">
+          <button class="btn primary" id="btnRun">Ejecutar ahora</button>
+          <button class="btn danger" id="btnStop">Detener</button>
+          <button class="btn" id="btnPause"></button>
+          <button class="btn" id="btnSchedule"></button>
+        </div>
+      </div>
+      <div class="card"><h2>Pendiente de configurar</h2><div id="todo"></div></div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="row spread"><h2 id="liveTitle">Última ejecución</h2><span class="muted" id="liveMeta"></span></div>
+      <pre class="log" id="liveLog">Sin ejecuciones todavía.</pre>
+    </div>
+  </section>
+
+  <section id="apps">
+    <div class="card">
+      <div class="row spread" style="margin-bottom:12px">
+        <div class="row chips" id="chips"></div>
+        <input id="search" placeholder="Buscar empresa, puesto o URL" style="max-width:280px">
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Estado</th><th>Empresa</th><th>Puesto</th><th>Canal</th><th>Match</th><th>Salario oferta</th><th>Acción requerida / detalle</th><th>Actualizado</th><th></th></tr></thead>
+        <tbody id="appRows"></tbody>
+      </table></div>
+      <p class="muted" id="appEmpty" hidden>No hay solicitudes con este filtro.</p>
+    </div>
+  </section>
+
+  <section id="runs">
+    <div class="grid cols-2">
+      <div class="card"><h2>Historial de ejecuciones</h2><div class="table-wrap"><table>
+        <thead><tr><th>Inicio</th><th>Origen</th><th>Duración</th><th>Estado</th><th>Cambios</th></tr></thead>
+        <tbody id="runRows"></tbody></table></div></div>
+      <div class="card"><h2 id="runLogTitle">Logs</h2><pre class="log" id="runLog">Selecciona una ejecución.</pre></div>
+    </div>
+  </section>
+
+  <section id="profile">
+    <form id="profileForm" class="grid" style="gap:16px" data-kind="settings"></form>
+  </section>
+
+  <section id="config">
+    <form id="configForm" class="grid" style="gap:16px" data-kind="settings"></form>
+  </section>
+
+  <section id="conn">
+    <div class="card"><h2>Conexiones y dependencias</h2><div id="connList"></div></div>
+    <div class="card" style="margin-top:16px"><h2>Actualizaciones</h2>
+      <p class="muted">Descarga la última versión del proyecto y reaplica las salvaguardas. Tus datos no se tocan.</p>
+      <button class="btn" id="btnUpdate">Buscar e instalar actualización</button></div>
+  </section>
+</main>
+
+<div id="wizard"><div class="box">
+  <h1>Bienvenido a Job Hunt</h1>
+  <p class="muted">Tres pasos y empieza a buscar por ti. Todo se guarda solo en este equipo.</p>
+  <div class="steps"><span data-s="1"></span><span data-s="2"></span><span data-s="3"></span></div>
+
+  <div class="step card" data-step="1">
+    <h2>1 · ¿Qué inteligencia artificial usarás?</h2>
+    <label class="choice"><input type="radio" name="wz_ai" value="claude"><div><b>Claude</b> (recomendado)<div class="muted">Usa tu cuenta de Claude Code. Evalúa ofertas y además rellena y envía formularios por ti.</div></div></label>
+    <label class="choice"><input type="radio" name="wz_ai" value="gemini"><div><b>Gemini</b> (gratis o muy barato)<div class="muted">Evalúa ofertas. Los formularios de empresa los envías tú con un clic; LinkedIn Easy Apply sí es automático.</div></div></label>
+    <label class="f" id="wzKeyBox" hidden><span>Clave de API de Gemini (<a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">obtener gratis</a>)</span><input id="wzKey" type="password" autocomplete="off"></label>
+    <div class="row" style="margin-top:12px"><button class="btn primary" id="wzNext1">Probar y continuar</button><span id="wzAiMsg" class="muted"></span></div>
+  </div>
+
+  <div class="step card" data-step="2">
+    <h2>2 · Sube tu CV</h2>
+    <p class="muted">PDF, Word (.docx), .md o .txt. La IA lo lee y rellena tu perfil; en el paso 3 lo revisas.</p>
+    <input type="file" id="wzFile" accept=".pdf,.docx,.md,.txt">
+    <div class="row" style="margin-top:12px"><button class="btn" id="wzBack2">Atrás</button><button class="btn primary" id="wzNext2">Analizar CV</button><span id="wzCvMsg" class="muted"></span></div>
+  </div>
+
+  <div class="step" data-step="3">
+    <form id="wizardForm" class="grid" style="gap:16px"></form>
+    <div class="row" style="margin-top:16px"><button class="btn" id="wzBack3">Atrás</button><button class="btn primary" id="wzFinish">Guardar y empezar</button></div>
+  </div>
+</div></div>
+
+<dialog id="hist"><h3 id="histTitle" style="margin-top:0;word-break:break-all"></h3><div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Estado</th><th>Detalle</th><th>Origen</th></tr></thead><tbody id="histRows"></tbody></table></div>
+<div class="row" style="margin-top:12px;justify-content:flex-end"><button class="btn" onclick="hist.close()">Cerrar</button></div></dialog>
+<div id="toast"></div>
+
+<script>
+const TOKEN = "__TOKEN__";
+const STATUSES = ["Acción requerida", "En cola", "Enviada", "Fallida", "Descartada"];
+let S = null, filter = "", liveRun = null, liveAfter = 0, selRun = null, P = null;
+const $ = s => document.querySelector(s);
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt = t => t ? new Date(t).toLocaleString("es", {dateStyle: "short", timeStyle: "short"}) : "—";
+const SLUG = {"Enviada": "sent", "Acción requerida": "action", "Fallida": "failed", "Descartada": "discarded", "En cola": "queued"};
+const pill = s => `<span class="pill s-${SLUG[s] || "discarded"}">${esc(s)}</span>`;
+const dur = r => { if (!r.started_at) return "—"; const m = Math.round((new Date(r.finished_at || Date.now()) - new Date(r.started_at)) / 60000); return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60} min`; };
+const RUN_LABEL = {running: "En curso", ok: "Correcta", error: "Error", interrupted: "Interrumpida", stopped: "Detenida"};
+
+const LANG_OPTS = [["es","Español"],["en","Inglés"],["pt","Portugués"],["fr","Francés"],["de","Alemán"],["it","Italiano"],["nl","Neerlandés"],["pl","Polaco"]];
+const MODALITY_OPTS = [["remote","Remoto"],["hybrid","Híbrido"],["onsite","Presencial"]];
+const CONTRACT_OPTS = [["full-time","Tiempo completo"],["part-time","Medio tiempo"],["contract","Contrato"],["freelance","Freelance"]];
+const SENIORITY_OPTS = [["Entry","Junior / inicial"],["Mid","Intermedio"],["Senior","Senior"],["Lead","Lead"],["Manager","Manager"],["Director","Director"]];
+
+const field = (name, label, type = "text", extra = "") => `<label class="f ${extra}"><span>${label}</span><input name="${name}" type="${type}"${type === "number" ? ' step="any"' : ""}></label>`;
+const list = (name, label, placeholder = "", extra = "wide") => `<label class="f ${extra}"><span>${label}</span><input data-list="${name}" placeholder="${esc(placeholder)}"></label>`;
+const group = (name, label, opts) => `<div class="f wide"><span class="f-title">${label}</span><div class="opts">${opts.map(([v, l]) => `<label><input type="checkbox" data-group="${name}" value="${v}"> ${l}</label>`).join("")}</div></div>`;
+const toggle = (name, label) => `<div class="opts wide"><label><input type="checkbox" name="${name}"> ${label}</label></div>`;
+const lines = (name, label, placeholder) => `<label class="f wide"><span>${label}</span><textarea data-lines="${name}" placeholder="${esc(placeholder)}"></textarea></label>`;
+const card = (title, body) => `<div class="card"><h2>${title}</h2><div class="grid form">${body}</div></div>`;
+
+const PROFILE_HTML = card("Datos personales",
+    field("full_name", "Nombre completo") + field("email", "Email", "email") + field("phone", "Teléfono (con prefijo país)") +
+    field("city", "Ciudad") + field("country", "País (en inglés, p. ej. Colombia, Spain)") + field("linkedin_url", "LinkedIn") +
+    field("github_url", "Web / portfolio / GitHub") + field("headline", "Titular profesional", "text", "wide")) +
+  card("Experiencia",
+    field("current_title", "Cargo actual") + field("current_company", "Empresa actual") + field("years_experience", "Años de experiencia") +
+    field("education", "Formación más alta") + field("notice_days", "Preaviso (días)", "number")) +
+  card("Respuestas para formularios",
+    field("work_authorization", "Autorización de trabajo (tal como la responderías)", "text", "wide") +
+    `<label class="f"><span>¿Necesitas patrocinio de visa?</span><select name="requires_sponsorship"><option>No</option><option>Yes</option></select></label>` +
+    `<label class="f"><span>¿Dispuesto a mudarte?</span><select name="willing_to_relocate"><option>No</option><option>Yes</option></select></label>` +
+    lines("standard_answers", "Otras respuestas fijas (una por línea, «Pregunta: respuesta»). Lo que no pongas se deja en blanco; nunca se inventa.",
+      "Are you 18 or older?: Yes\nHow did you hear about us?: Job board"));
+
+const SEARCH_HTML = card("Qué buscas",
+    list("roles", "Puestos a buscar (separados por coma)", "Marketing Manager, Brand Manager") +
+    group("seniority", "Nivel", SENIORITY_OPTS) + group("modality", "Modalidad", MODALITY_OPTS) +
+    list("locations", "Países, regiones o ciudades", "Bogotá, Colombia, Latin America") +
+    field("distance_km", "Radio para presencial/híbrido (km)", "number") + group("contract_types", "Tipo de contrato", CONTRACT_OPTS) +
+    field("salary_min_month", "Sueldo mínimo mensual (0 = sin filtro)", "number") + field("currency", "Moneda (USD, EUR, COP…)") +
+    field("salary_fallback_year", "Pretensión anual si la oferta no publica salario", "number") +
+    group("languages", "Idiomas aceptados de la oferta", LANG_OPTS) +
+    list("excluded_tech", "Rechazar si el puesto o su foco principal es (separado por coma)", "Java, .NET, ventas en frío"));
+
+const CONFIG_HTML = SEARCH_HTML +
+  card("Filtros avanzados",
+    field("min_score", "Match mínimo para aplicar (1–5)", "number") + field("max_age_days", "Antigüedad máxima de la oferta (días)", "number") +
+    list("title_keywords", "Palabras que debe tener el título (vacío = usar los puestos)") +
+    list("title_excludes", "Palabras de título a descartar") +
+    toggle("accept_agencies", "Aceptar ofertas de agencias, reclutadoras y plataformas de talento") +
+    lines("target_companies", "Empresas objetivo (una por línea, «Nombre | URL de su página de empleo»)", "Acme | https://jobs.lever.co/acme")) +
+  card("Canales",
+    toggle("ats_enabled", "Portales y páginas de empleo de empresas") + toggle("jobspy_enabled", "LinkedIn, Indeed, Glassdoor y Google Jobs (búsqueda)") +
+    toggle("linkedin_enabled", "Aplicar con LinkedIn Easy Apply (tu cuenta)") + field("linkedin_cap", "Tope diario de LinkedIn", "number") +
+    field("eval_parallel", "Evaluaciones en paralelo", "number")) +
+  card("Inteligencia artificial",
+    `<label class="f"><span>Proveedor</span><select name="ai_provider"><option value="claude">Claude (evalúa y envía)</option><option value="gemini">Gemini (evalúa; envío manual)</option></select></label>` +
+    field("gemini_api_key", "Clave de Gemini (solo si usas Gemini)", "password")) +
+  card("Programación", list("schedule_times", "Horas de ejecución diaria (HH:MM, separadas por coma)", "08:00, 20:00"));
+
+function fillForm(form, s) {
+  form.querySelectorAll("[name]").forEach(el => { const v = s[el.name]; if (v === undefined) return; if (el.type === "checkbox") el.checked = !!v; else el.value = v; });
+  form.querySelectorAll("[data-list]").forEach(el => el.value = (s[el.dataset.list] || []).join(", "));
+  form.querySelectorAll("[data-group]").forEach(el => el.checked = (s[el.dataset.group] || []).includes(el.value));
+  form.querySelectorAll("[data-lines]").forEach(el => {
+    const v = s[el.dataset.lines];
+    el.value = el.dataset.lines === "standard_answers" ? Object.entries(v || {}).map(([q, a]) => `${q}: ${a}`).join("\n")
+      : (v || []).map(c => `${c.name} | ${c.careers_url}`).join("\n");
+  });
+}
+function readForm(form) {
+  const out = {};
+  form.querySelectorAll("[name]").forEach(el => out[el.name] = el.type === "checkbox" ? el.checked : el.type === "number" ? Number(el.value || 0) : el.value.trim());
+  form.querySelectorAll("[data-list]").forEach(el => out[el.dataset.list] = el.value.split(",").map(x => x.trim()).filter(Boolean));
+  form.querySelectorAll("[data-group]").forEach(el => { out[el.dataset.group] ||= []; if (el.checked) out[el.dataset.group].push(el.value); });
+  form.querySelectorAll("[data-lines]").forEach(el => {
+    const rows = el.value.split("\n").map(x => x.trim()).filter(Boolean);
+    out[el.dataset.lines] = el.dataset.lines === "standard_answers"
+      ? Object.fromEntries(rows.filter(r => r.includes(":")).map(r => [r.slice(0, r.lastIndexOf(":")).trim(), r.slice(r.lastIndexOf(":") + 1).trim()]))
+      : rows.filter(r => r.includes("|")).map(r => ({name: r.split("|")[0].trim(), careers_url: r.split("|")[1].trim()}));
+  });
+  return out;
+}
+function validate(v) {
+  if (v.modality && !v.modality.length) return "Elige al menos una modalidad";
+  if (v.languages && !v.languages.length) return "Elige al menos un idioma";
+  if (v.roles && !v.roles.length) return "Indica al menos un puesto";
+  if (v.schedule_times) { v.schedule_times = v.schedule_times.filter(t => /^\d{1,2}:\d{2}$/.test(t)); if (!v.schedule_times.length) return "Indica al menos una hora válida (HH:MM)"; }
+  return null;
+}
+
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 5000); }
+async function get(p) { const r = await fetch(p); return r.json(); }
+async function post(p, body = {}, quiet = false) {
+  const r = await fetch(p, {method: "POST", headers: {"Content-Type": "application/json", "X-Token": TOKEN}, body: JSON.stringify(body)});
+  const j = await r.json(); if (!quiet) toast(j.message || j.error || "Hecho"); refresh(); return j;
+}
+
+document.querySelectorAll("#nav button").forEach(b => b.onclick = async () => {
+  document.querySelectorAll("#nav button, section").forEach(e => e.classList.remove("active"));
+  b.classList.add("active"); $("#" + b.dataset.tab).classList.add("active");
+  if (b.dataset.tab === "apps") loadApps();
+  if (b.dataset.tab === "profile" || b.dataset.tab === "config") await loadForms();
+});
+
+async function loadForms() {
+  P = await get("/api/profile");
+  fillForm($("#profileForm"), P); fillForm($("#configForm"), P);
+}
+$("#profileForm").innerHTML = PROFILE_HTML + card("Currículum", `<div class="wide muted">Sube un CV nuevo para volver a analizarlo (no se guarda hasta que confirmes).</div><input type="file" id="cvFile" accept=".pdf,.docx,.md,.txt" class="wide"><div class="row wide"><button type="button" class="btn" id="btnReCv">Analizar CV nuevo</button><span id="reCvMsg" class="muted"></span></div>`) +
+  `<div class="row"><button class="btn primary" type="submit">Guardar perfil</button></div>`;
+$("#configForm").innerHTML = CONFIG_HTML + `<div class="row"><button class="btn primary" type="submit">Guardar y aplicar</button></div>`;
+$("#wizardForm").innerHTML = `<div class="card"><h2>3 · Revisa tus datos</h2><p class="muted">Rellenado a partir de tu CV. Corrige lo que haga falta.</p></div>` + PROFILE_HTML + SEARCH_HTML;
+
+for (const id of ["#profileForm", "#configForm"]) {
+  $(id).onsubmit = async e => {
+    e.preventDefault();
+    const v = readForm(e.target), err = validate(v);
+    if (err) return toast(err);
+    if (id === "#profileForm" && P && P._newCv) Object.assign(v, {cv_md: P.cv_md, archetypes: P.archetypes});
+    document.activeElement.blur();
+    await post("/api/settings", v);
+    loadForms();
+  };
+}
+
+async function fileToPayload(input) {
+  const f = input.files[0];
+  if (!f) throw new Error("Elige un archivo");
+  const data = await new Promise((ok, ko) => { const r = new FileReader(); r.onload = () => ok(r.result.split(",")[1]); r.onerror = ko; r.readAsDataURL(f); });
+  return {filename: f.name, data};
+}
+$("#btnReCv").onclick = async () => {
+  try {
+    $("#reCvMsg").innerHTML = '<span class="spinner"></span> Analizando (puede tardar un minuto)…';
+    const j = await post("/api/onboarding/analyze", await fileToPayload($("#cvFile")), true);
+    if (!j.ok) throw new Error(j.message);
+    P = {...P, ...j.profile, _newCv: true}; fillForm($("#profileForm"), P);
+    $("#reCvMsg").textContent = "Revisa los datos y pulsa «Guardar perfil».";
+  } catch (e) { $("#reCvMsg").textContent = e.message; }
+};
+
+async function refresh() {
+  S = await get("/api/state");
+  if (!S.settings.onboarded) return showWizard();
+  $("#wizard").classList.remove("show");
+  const c = S.counts, total = Object.values(c).reduce((a, b) => a + b, 0), ev = S.evaluation;
+  const pending = Math.max(ev.total - ev.done, 0);
+  $("#tiles").innerHTML = [["Total", total], ["Por evaluar", pending], ...STATUSES.map(s => [s, c[s] || 0])]
+    .map(([l, n]) => `<div class="card tile"><div class="n">${n}</div><div class="l">${esc(l)}</div></div>`).join("");
+
+  const t = S.task, run = S.running, st = S.settings;
+  $("#svcPill").innerHTML = run ? '<span class="pill s-running">En ejecución</span>' : S.paused ? '<span class="pill s-paused">Pausado</span>' : '<span class="pill s-ok">Inactivo</span>';
+  $("#svc").innerHTML = `
+    <dt>Programación</dt><dd>${t.registered ? `Activa · ${esc(st.schedule_times.join(", "))}` : "No programada"}</dd>
+    <dt>Próxima ejecución</dt><dd>${t.registered && !S.paused ? (t.next ? fmt(t.next) : esc(st.schedule_times.join(", "))) : "—"}</dd>
+    <dt>Última ejecución</dt><dd>${S.runs[0] ? `${fmt(S.runs[0].started_at)} · ${RUN_LABEL[S.runs[0].status] || S.runs[0].status}` : "—"}</dd>
+    <dt>Evaluación</dt><dd>${ev.total ? `${ev.done}/${ev.total} evaluadas · ${ev.processing} en curso · ${ev.passed} con match ≥ ${st.min_score}${ev.failed ? ` · ${ev.failed} fallidas` : ""}` : "—"}</dd>
+    <dt>Búsqueda</dt><dd>${esc(st.roles.slice(0, 3).join(", "))}${st.roles.length > 3 ? "…" : ""} · ${esc(st.modality.map(m => ({remote: "remoto", hybrid: "híbrido", onsite: "presencial"})[m]).join("/"))} · ${esc(st.locations.slice(0, 2).join(", ") || st.country)}</dd>
+    <dt>IA</dt><dd>${st.ai_provider === "claude" ? "Claude (evalúa y envía)" : "Gemini (evalúa; envío manual)"}</dd>
+    <dt>Consumo IA</dt><dd>${ev.done} evaluaciones · ${S.usage.applies} envíos (${(S.usage.tokens / 1e6).toFixed(2)} M tokens, ≈ $${S.usage.cost_usd} equivalente API)</dd>`;
+  $("#btnRun").disabled = !!run; $("#btnStop").disabled = !run;
+  $("#btnPause").textContent = S.paused ? "Reanudar" : "Pausar";
+  $("#btnSchedule").textContent = t.registered ? "Desactivar programación" : "Activar programación";
+
+  const todo = S.connections.filter(x => !x.ok);
+  if (!t.registered) todo.push({name: "Programación diaria desactivada", hint: "Actívala para que busque sola cada día", action: "schedule"});
+  if (!S.runs.length) todo.push({name: "Aún no hay ejecuciones", hint: "Lanza la primera con «Ejecutar ahora» (la primera tarda más)", action: "run"});
+  const checkRow = x => `<div class="check"><span class="dot ${x.ok ? "ok" : "no"}"></span><div style="flex:1"><div>${esc(x.name)}</div><div class="muted">${esc(x.hint)}</div></div>${x.action ? `<button class="btn sm" data-act="${x.action}">${actionLabel(x.action)}</button>` : ""}</div>`;
+  $("#todo").innerHTML = todo.length ? todo.map(checkRow).join("") : '<div class="check"><span class="dot ok"></span><div>Todo listo.</div></div>';
+  $("#connList").innerHTML = S.connections.map(checkRow).join("");
+
+  $("#runRows").innerHTML = S.runs.map(r => `<tr class="click ${r.id === selRun ? "sel" : ""}" data-run="${esc(r.id)}"><td>${fmt(r.started_at)}</td><td>${r.trigger === "manual" ? "Manual" : "Programada"}</td><td>${dur(r)}</td><td><span class="pill s-${esc(r.status)}">${esc(RUN_LABEL[r.status] || r.status)}</span></td><td class="muted">${esc(summary(r.summary))}</td></tr>`).join("") || '<tr><td colspan="5" class="muted">Sin ejecuciones.</td></tr>';
+
+  const target = run || S.runs[0];
+  if (target && target.id !== liveRun) { liveRun = target.id; liveAfter = 0; $("#liveLog").textContent = ""; }
+  if (target) { $("#liveTitle").textContent = run ? "Ejecución en curso" : "Última ejecución"; $("#liveMeta").textContent = `${fmt(target.started_at)} · ${dur(target)}`; await tailLive(); }
+  if ($("#apps").classList.contains("active") && !document.activeElement.matches("#search")) loadApps();
+}
+
+function actionLabel(a) { return {"linkedin-login": "Iniciar sesión", patches: "Aplicar", schedule: "Activar", run: "Ejecutar", "test-ai": "Probar"}[a]; }
+function summary(s) { try { const o = JSON.parse(s || "{}"); return Object.entries(o).map(([k, v]) => `${k} ${v > 0 ? "+" : ""}${v}`).join(" · ") || "Sin cambios"; } catch { return ""; } }
+
+async function tailLive() {
+  const rows = await get(`/api/logs?run=${encodeURIComponent(liveRun)}&after=${liveAfter}`);
+  if (!rows.length) return;
+  const pre = $("#liveLog"), atBottom = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 20;
+  pre.textContent += rows.map(r => `[${r.ts.slice(11)}] ${r.msg}`).join("\n") + "\n";
+  liveAfter = rows[rows.length - 1].id;
+  if (atBottom) pre.scrollTop = pre.scrollHeight;
+}
+
+document.addEventListener("click", async e => {
+  const act = e.target.closest("[data-act]")?.dataset.act;
+  if (act === "linkedin-login") post("/api/linkedin-login");
+  if (act === "patches") post("/api/patches");
+  if (act === "schedule") post("/api/schedule", {enabled: true});
+  if (act === "run") post("/api/run");
+  if (act === "test-ai") { toast("Probando la IA…"); post("/api/test-ai"); }
+  const runRow = e.target.closest("[data-run]");
+  if (runRow) {
+    selRun = runRow.dataset.run;
+    document.querySelectorAll("#runRows tr").forEach(tr => tr.classList.toggle("sel", tr === runRow));
+    $("#runLogTitle").textContent = `Logs · ${selRun}`;
+    const rows = await get(`/api/logs?run=${encodeURIComponent(selRun)}&after=0`);
+    $("#runLog").textContent = rows.map(r => `[${r.ts.slice(11)}] ${r.msg}`).join("\n") || "Sin logs.";
+  }
+  const a = e.target.closest("[data-app]");
+  if (a) {
+    const {app, op} = a.dataset;
+    if (op === "hist") return showHist(app);
+    await post("/api/applications/action", {url: app, action: op}); loadApps();
+  }
+});
+
+$("#btnRun").onclick = () => post("/api/run");
+$("#btnStop").onclick = () => confirm("¿Detener la ejecución en curso?") && post("/api/stop");
+$("#btnPause").onclick = () => post("/api/pause", {paused: !S.paused});
+$("#btnSchedule").onclick = () => post("/api/schedule", {enabled: !S.task.registered});
+$("#btnUpdate").onclick = () => { toast("Buscando actualización…"); post("/api/update"); };
+
+function renderChips() {
+  $("#chips").innerHTML = [["", "Todas"], ...STATUSES.map(s => [s, s])]
+    .map(([v, l]) => `<button class="${v === filter ? "active" : ""}" data-f="${esc(v)}">${esc(l)} ${v ? `(${S?.counts[v] || 0})` : ""}</button>`).join("");
+  document.querySelectorAll("#chips button").forEach(b => b.onclick = () => { filter = b.dataset.f; loadApps(); });
+}
+let searchT; $("#search").oninput = () => { clearTimeout(searchT); searchT = setTimeout(loadApps, 250); };
+
+async function loadApps() {
+  renderChips();
+  const rows = await get(`/api/applications?status=${encodeURIComponent(filter)}&q=${encodeURIComponent($("#search").value)}`);
+  $("#appEmpty").hidden = rows.length > 0;
+  $("#appRows").innerHTML = rows.map(r => {
+    const u = esc(r.url), ats = r.channel !== "LinkedIn Easy Apply";
+    const ops = [
+      `<a class="btn sm" href="${u}" target="_blank" rel="noopener">Abrir</a>`,
+      r.status !== "Enviada" ? `<button class="btn sm" data-app="${u}" data-op="applied">Marcar enviada</button>` : "",
+      ats && r.status !== "Descartada" && r.status !== "Enviada" ? `<button class="btn sm" data-app="${u}" data-op="discard">Descartar</button>` : "",
+      ats && ["Fallida", "Acción requerida", "Descartada"].includes(r.status) ? `<button class="btn sm" data-app="${u}" data-op="retry">Reintentar</button>` : "",
+      `<button class="btn sm" data-app="${u}" data-op="hist">Historial</button>`,
+    ].join(" ");
+    return `<tr><td>${pill(r.status)}</td><td>${esc(r.company)}</td><td>${esc(r.role)}</td><td class="muted">${esc(r.channel)}</td>
+      <td>${r.score ? Number(r.score).toFixed(1) + "/5" : "—"}</td><td>${esc(r.salary || "—")}</td>
+      <td>${r.action ? `<strong>${esc(r.action)}</strong>` : `<span class="muted">${esc(r.detail)}</span>`}</td>
+      <td class="muted">${fmt(r.updated_at)}</td><td><div class="ops">${ops}</div></td></tr>`;
+  }).join("");
+}
+
+async function showHist(url) {
+  const rows = await get(`/api/events?url=${encodeURIComponent(url)}`);
+  $("#histTitle").textContent = url;
+  $("#histRows").innerHTML = rows.map(r => `<tr><td>${fmt(r.ts)}</td><td>${pill(r.status)}</td><td>${esc(r.detail)}</td><td class="muted">${esc(r.origin)}${r.run_id ? " · " + esc(r.run_id) : ""}</td></tr>`).join("");
+  hist.showModal();
+}
+
+let wizardStep = 0, wizardProfile = null;
+function showStep(n) {
+  wizardStep = n;
+  document.querySelectorAll("#wizard .step").forEach(s => s.classList.toggle("on", Number(s.dataset.step) === n));
+  document.querySelectorAll(".steps span").forEach(s => s.classList.toggle("on", Number(s.dataset.s) <= n));
+}
+async function showWizard() {
+  if ($("#wizard").classList.contains("show")) return;
+  $("#wizard").classList.add("show");
+  const p = await get("/api/profile");
+  document.querySelector(`[name=wz_ai][value=${p.ai_provider}]`).checked = true;
+  $("#wzKeyBox").hidden = p.ai_provider !== "gemini";
+  showStep(1);
+}
+document.querySelectorAll("[name=wz_ai]").forEach(r => r.onchange = () => $("#wzKeyBox").hidden = r.value !== "gemini" || !r.checked);
+$("#wzNext1").onclick = async () => {
+  const provider = document.querySelector("[name=wz_ai]:checked").value, body = {ai_provider: provider};
+  if (provider === "gemini") { if (!$("#wzKey").value.trim()) return toast("Pega tu clave de Gemini"); body.gemini_api_key = $("#wzKey").value.trim(); }
+  $("#wzAiMsg").innerHTML = '<span class="spinner"></span> Probando…';
+  await post("/api/settings", body, true);
+  const j = await post("/api/test-ai", {}, true);
+  $("#wzAiMsg").textContent = j.ok ? "" : j.message;
+  if (j.ok) showStep(2);
+};
+$("#wzBack2").onclick = () => showStep(1);
+$("#wzBack3").onclick = () => showStep(2);
+$("#wzNext2").onclick = async () => {
+  try {
+    $("#wzCvMsg").innerHTML = '<span class="spinner"></span> Leyendo tu CV (puede tardar un minuto)…';
+    const j = await post("/api/onboarding/analyze", await fileToPayload($("#wzFile")), true);
+    if (!j.ok) throw new Error(j.message);
+    const defaults = await get("/api/profile");
+    wizardProfile = {...defaults, ...j.profile};
+    if (!wizardProfile.locations.length && wizardProfile.country) wizardProfile.locations = [wizardProfile.country];
+    fillForm($("#wizardForm"), wizardProfile);
+    $("#wzCvMsg").textContent = "";
+    showStep(3);
+  } catch (e) { $("#wzCvMsg").textContent = e.message; }
+};
+$("#wzFinish").onclick = async () => {
+  const v = readForm($("#wizardForm")), err = validate(v);
+  if (err) return toast(err);
+  const extra = {cv_md: wizardProfile.cv_md || "", archetypes: wizardProfile.archetypes || [], title_keywords: wizardProfile.title_keywords || [],
+                 title_excludes: wizardProfile.title_excludes || [], is_tech: !!wizardProfile.is_tech};
+  $("#wzFinish").disabled = true;
+  const j = await post("/api/onboarding/finish", {...v, ...extra});
+  $("#wzFinish").disabled = false;
+  if (j.ok) { $("#wizard").classList.remove("show"); refresh(); }
+};
+
+refresh();
+setInterval(() => refresh().catch(() => {}), 4000);
+</script>
+</body>
+</html>
