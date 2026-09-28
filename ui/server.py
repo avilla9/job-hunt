@@ -60,7 +60,7 @@ def connections(s):
     ]
     if s["linkedin_enabled"]:
         items.append({"id": "linkedin", "name": "Sesión de LinkedIn (perfil del bot)", "ok": po.linkedin_logged_in(),
-                      "hint": "Inicia sesión una vez en la ventana que se abre y ciérrala. LinkedIn debe estar en inglés (Settings → Account preferences → Display language → English)", "action": "linkedin-login"})
+                      "hint": "Inicia sesión una vez en la ventana que se abre y ciérrala. Funciona con LinkedIn en español o inglés.", "action": "linkedin-login"})
     return items
 
 
@@ -159,6 +159,8 @@ def start_run(trigger="manual"):
     (ROOT / "logs").mkdir(exist_ok=True)
     po.spawn_detached([sys.executable, str(ROOT / "run_daily.py"), trigger], ROOT,
                       ROOT / "logs" / f"task-{datetime.now():%Y%m%d-%H%M%S}.txt")
+    if trigger == "linkedin":
+        return True, "Reintentando LinkedIn Easy Apply"
     if trigger.startswith("apply"):
         return True, "Enviando solicitudes de la cola"
     return True, "Prueba segura iniciada: no se enviará nada" if trigger == "test" else "Ejecución iniciada"
@@ -289,6 +291,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if path == "/api/run":
                 ok, msg = start_run()
+            elif path == "/api/linkedin-run":
+                ok, msg = start_run("linkedin")
             elif path == "/api/apply-queue":
                 ok, msg = start_run(f"apply:{max(1, min(int(body.get('limit') or 10), 500))}")
             elif path == "/api/test-run":

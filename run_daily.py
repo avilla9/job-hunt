@@ -353,12 +353,12 @@ def audit_agent_logs(log_dir, since, test=False):
         STEPS["Auditoría de seguridad"] = "OK"
 
 
-def linkedin(s, test=False):
+def linkedin(s, test=False, force=False):
     if not po.linkedin_logged_in():
         log("LinkedIn: aún no has iniciado sesión en el perfil del bot (Panel → Iniciar sesión); se omite")
         STEPS["LinkedIn"] = "Omitido: falta iniciar sesión"
         return
-    if not test and not linkedin_due(s):
+    if not test and not force and not linkedin_due(s):
         STEPS["LinkedIn"] = "Ya se ejecutó hoy"
         return
     cfg_path = LI / "user_config.json"
@@ -410,7 +410,9 @@ def main(trigger="scheduled"):
         onboarding.ensure_cv_pdf(s)
         propagate(s)
         log("salvaguardas y configuración aplicadas a los bots" + (" · MODO PRUEBA (no se envía nada)" if test else ""))
-        if only_apply:
+        if trigger == "linkedin":
+            linkedin(s, force=True)
+        elif only_apply:
             if s["ai_provider"] != "claude":
                 raise RuntimeError("El envío automático requiere Claude Code")
             apply(s, batch=int(trigger.split(":")[1]) if ":" in trigger else None)
@@ -425,7 +427,7 @@ def main(trigger="scheduled"):
             evaluate(s, test)
             if s["ai_provider"] == "claude":
                 apply(s, test)
-        if s["linkedin_enabled"] and not only_apply:
+        if s["linkedin_enabled"] and not only_apply and trigger != "linkedin":
             linkedin(s, test)
         log(f"{sync(DB, RUN_ID)} solicitudes actualizadas")
         if any(v.startswith("ERROR") for v in STEPS.values()):

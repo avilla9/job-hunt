@@ -106,6 +106,7 @@ a{color:var(--accent)}
         <div class="row" style="margin-top:16px">
           <button class="btn primary" id="btnRun">Ejecutar ahora</button>
           <span class="btn-group"><button class="btn" id="btnApply" title="Solo envía solicitudes de la cola, sin buscar ni evaluar">Enviar cola</button><input id="applyN" type="number" min="1" max="200" style="width:4.5em" title="Cuántas enviar en este lote"></span>
+          <button class="btn" id="btnLinkedin" title="Ejecuta solo LinkedIn Easy Apply (respeta el tope diario)">Reintentar LinkedIn</button>
           <button class="btn" id="btnTest" title="Busca, evalúa 3 ofertas y rellena 2 formularios sin pulsar Enviar">Prueba segura (sin enviar)</button>
           <button class="btn danger" id="btnStop">Detener</button>
           <button class="btn" id="btnPause"></button>
@@ -356,6 +357,7 @@ async function refresh() {
     <dt>Búsqueda</dt><dd>${esc(st.roles.slice(0, 3).join(", "))}${st.roles.length > 3 ? "…" : ""} · ${esc(st.modality.map(m => ({remote: "remoto", hybrid: "híbrido", onsite: "presencial"})[m]).join("/"))} · ${esc(st.locations.slice(0, 2).join(", ") || st.country)}</dd>
     <dt>IA</dt><dd>${st.ai_provider === "claude" ? "Claude (evalúa y envía)" : "Gemini (evalúa; envío manual)"}</dd>
     <dt>Consumo IA</dt><dd>${ev.done} evaluaciones · ${S.usage.applies} envíos (${(S.usage.tokens / 1e6).toFixed(2)} M tokens, ≈ $${S.usage.cost_usd} equivalente API)</dd>`;
+  $("#btnLinkedin").disabled = !!run || !S.settings.linkedin_enabled;
   $("#btnRun").disabled = !!run; $("#btnTest").disabled = !!run; $("#btnApply").disabled = !!run || !c["En cola"];
   $("#btnApply").textContent = `Enviar cola (${c["En cola"] || 0})`;
   if (!$("#applyN").value) $("#applyN").value = S.settings.apply_batch || 10; $("#btnStop").disabled = !run;
@@ -369,7 +371,7 @@ async function refresh() {
   $("#todo").innerHTML = todo.length ? todo.map(checkRow).join("") : '<div class="check"><span class="dot ok"></span><div>Todo listo.</div></div>';
   $("#connList").innerHTML = S.connections.map(checkRow).join("");
 
-  $("#runRows").innerHTML = S.runs.map(r => `<tr class="click ${r.id === selRun ? "sel" : ""}" data-run="${esc(r.id)}"><td>${fmt(r.started_at)}</td><td>${(r.trigger.startsWith("apply") ? "Envío de cola" : ({manual: "Manual", test: "Prueba segura"})[r.trigger]) || "Programada"}</td><td>${dur(r)}</td><td><span class="pill s-${esc(r.status)}">${esc(RUN_LABEL[r.status] || r.status)}</span></td><td class="muted">${esc(summary(r.summary))}</td></tr>`).join("") || '<tr><td colspan="5" class="muted">Sin ejecuciones.</td></tr>';
+  $("#runRows").innerHTML = S.runs.map(r => `<tr class="click ${r.id === selRun ? "sel" : ""}" data-run="${esc(r.id)}"><td>${fmt(r.started_at)}</td><td>${(r.trigger === "linkedin" ? "LinkedIn" : r.trigger.startsWith("apply") ? "Envío de cola" : ({manual: "Manual", test: "Prueba segura"})[r.trigger]) || "Programada"}</td><td>${dur(r)}</td><td><span class="pill s-${esc(r.status)}">${esc(RUN_LABEL[r.status] || r.status)}</span></td><td class="muted">${esc(summary(r.summary))}</td></tr>`).join("") || '<tr><td colspan="5" class="muted">Sin ejecuciones.</td></tr>';
 
   const target = run || S.runs[0];
   if (target && target.id !== liveRun) { liveRun = target.id; liveAfter = 0; $("#liveLog").textContent = ""; }
@@ -421,6 +423,7 @@ document.addEventListener("click", async e => {
 
 $("#btnRun").onclick = () => post("/api/run");
 $("#btnTest").onclick = () => post("/api/test-run");
+$("#btnLinkedin").onclick = () => post("/api/linkedin-run");
 $("#btnApply").onclick = () => post("/api/apply-queue", {limit: +$("#applyN").value || 10});
 $("#btnStop").onclick = () => confirm("¿Detener la ejecución en curso?") && post("/api/stop");
 $("#btnPause").onclick = () => post("/api/pause", {paused: !S.paused});
