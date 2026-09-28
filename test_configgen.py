@@ -34,6 +34,7 @@ assert "country_eligibility_filter" not in portals
 assert portals["salary_filter"] == {"min": 96000000, "max": 0, "currency": "COP"}
 providers = [b["provider"] for b in portals["job_boards"]]
 assert "remotive" not in providers and "hackernews" not in providers and providers.count("torre") == 2
+assert [b for b in portals["job_boards"] if b["provider"] == "workable-search"][0] == {"name": "Workable Marketing Manager", "provider": "workable-search", "search": "Marketing Manager", "location": "Bogotá", "enabled": True}
 assert portals["tracked_companies"] == []
 
 profile = cg.yaml_load(co / "config" / "profile.yml")

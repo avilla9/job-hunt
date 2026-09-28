@@ -1549,7 +1549,15 @@ search_queries:
 #   # Capped at 20 results/query, no paging — use several entries with
 #   # different search terms for breadth.
 #
-# - name: Yourator                        # Taiwanese startup/digital-roles board
+# - name: Jobs by Workable                # cross-employer search (jobs.workable.com)
+#   provider: workable-search
+#   search: full stack engineer           # required
+#   location: Latin America               # optional — country, city or region
+#   workplace: remote                     # optional — remote / hybrid / on_site
+#   max_pages: 3                          # optional — 20 results per page (cap 25)
+#   enabled: true
+#
+# - name: Yourator                       # Taiwanese startup/digital-roles board
 #   provider: yourator
 #   careers_url: https://www.yourator.co/jobs
 #   max_pages: 120                        # optional page cap (default 120, max 500)

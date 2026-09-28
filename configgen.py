@@ -14,9 +14,9 @@ NODE_CWD = ROOT / "career-ops"
 REMOTE_TERMS = ["Remote", "Worldwide", "Anywhere", "Global"]
 BASE_NEGATIVES = ["word:Intern", "Internship", "Praktikant", "Werkstudent", "Thesis", "Trainee", "Apprentice", "Stagiaire",
                   "Pasante", "Becario", "Student"]
-REMOTE_BOARDS = ["himalayas", "remotive", "remoteok", "weworkremotely", "workingnomads", "jobicy", "jobspresso", "nodesk",
+REMOTE_BOARDS = ["himalayas", "remotive", "remoteok", "weworkremotely", "workingnomads", "jobicy", "nodesk",
                  "remotli", "4dayweek"]
-TECH_BOARDS = ["hackernews", "pythonorg", "larajobs", "landingjobs", "agentic-jobs"]
+TECH_BOARDS = ["hackernews", "pythonorg", "larajobs", "landingjobs"]
 BOARD_EXTRA = {"remotli": {"careers_url": "https://remotli.ch/api/jobs"}, "4dayweek": {"careers_url": "https://4dayweek.io/api/jobs"},
                "pythonorg": {"careers_url": "https://www.python.org/jobs/"}}
 US_ONLY = ["must be located in the united states", "us-based candidates only", "must reside in the us",
@@ -137,6 +137,8 @@ def build_portals(s, t):
         boards.append({"name": "Get on Board", "provider": "getonbrd",
                        "categories": ["programming", "machine-learning-ai", "data-science-analytics"], "enabled": True})
     boards += [{"name": f"Torre {r}", "provider": "torre", "search": r, "enabled": True} for r in s["roles"][:4]]
+    where = {**({"location": s["locations"][0]} if s["locations"] else {}), **({"workplace": "remote"} if remote_ok(s) else {})}
+    boards += [{"name": f"Workable {r}", "provider": "workable-search", "search": r, **where, "enabled": True} for r in s["roles"][:4]]
     t["job_boards"] = boards
     if s["target_companies"]:
         t["tracked_companies"] = [{"name": c["name"], "careers_url": c["careers_url"], "enabled": True}
