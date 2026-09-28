@@ -1,4 +1,3 @@
-import json
 import shutil
 import subprocess
 import sys
@@ -21,21 +20,6 @@ def run(cmd, cwd=ROOT, **kw):
 def require(tool, hint):
     if not shutil.which(tool):
         sys.exit(f"\nFalta {tool}. {hint}\nInstálalo y vuelve a ejecutar el instalador.")
-
-
-def sync_vendor():
-    lock = json.loads((ROOT / "vendor.lock").read_text(encoding="utf-8"))
-    for name, spec in lock.items():
-        target = ROOT / name
-        if not (target / ".git").exists():
-            step(f"Descargando {name}")
-            run(["git", "clone", "--filter=blob:none", spec["repo"], str(target)])
-        current = subprocess.run(["git", "-C", str(target), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
-        if current != spec["commit"]:
-            step(f"Fijando {name} en la versión probada")
-            run(["git", "-C", str(target), "checkout", "--", "."])
-            run(["git", "-C", str(target), "fetch", "--quiet", "origin", spec["commit"]])
-            run(["git", "-C", str(target), "checkout", "--quiet", spec["commit"]])
 
 
 def venv(path, packages=(), requirements=None, editable=None):
@@ -77,7 +61,6 @@ def main():
         sys.exit("Se necesita Python 3.11 o superior.")
     require("git", "Descárgalo en https://git-scm.com")
     require("node", "Descarga Node.js LTS en https://nodejs.org")
-    sync_vendor()
     step("Preparando el motor de envío (ApplyPilot)")
     venv(".venv-ap", ["python-jobspy", "--no-deps"], editable="ApplyPilot")
     venv(".venv-ap", ["pydantic", "tls-client", "requests", "markdownify", "regex", "pypdf"])

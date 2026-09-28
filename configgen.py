@@ -160,10 +160,10 @@ AGENCY_NO = ("### Step 1.5 — Agency postings (user standing preference)\n\n"
 
 
 def rewrite_from_head(relpath, pattern, replacement):
-    git = subprocess.run(["git", "-C", str(CO), "show", f"HEAD:{relpath}"], capture_output=True, text=True, encoding="utf-8")
-    if git.returncode != 0:
+    base = ROOT / "vendor-base" / "career-ops" / relpath
+    if not base.exists():
         return
-    text, n = re.subn(pattern, lambda _: replacement, git.stdout, count=1, flags=re.S)
+    text, n = re.subn(pattern, lambda _: replacement, base.read_text(encoding="utf-8"), count=1, flags=re.S)
     if n:
         write_if_changed(CO / relpath, text)
 

@@ -1,15 +1,14 @@
 import re
-import subprocess
 import sys
 from pathlib import Path
 
 repo = Path(__file__).parent / "ApplyPilot"
+pristine = Path(__file__).parent / "vendor-base" / "ApplyPilot"  # originales sin parchear
 base = "src/applypilot/apply"
 
 
 def original(name):
-    return subprocess.run(["git", "-C", str(repo), "show", f"HEAD:{base}/{name}"], capture_output=True, text=True,
-                          encoding="utf-8", check=True).stdout
+    return (pristine / base / name).read_text(encoding="utf-8")
 
 
 def replace(text, old, new, name):
@@ -135,8 +134,7 @@ ACCOUNT_DOMAINS = ["a.team", "toptal.com", "turing.com", "upwork.com", "mercor.c
                    "gun.io", "x-team.com", "crossover.com", "andela.com", "outlier.ai", "remotasks.com", "fiverr.com", "contra.com",
                    "myworkdayjobs.com", "taleo.net", "icims.com", "successfactors.com", "oraclecloud.com", "brassring.com"]
 sites_path = repo / "src/applypilot/config/sites.yaml"
-sites = subprocess.run(["git", "-C", str(repo), "show", "HEAD:src/applypilot/config/sites.yaml"], capture_output=True, text=True,
-                       encoding="utf-8", check=True).stdout
+sites = (pristine / "src/applypilot/config/sites.yaml").read_text(encoding="utf-8")
 sites = replace(sites, 'manual_ats:\n', "manual_ats:\n" + "".join(f'  - "{d}"\n' for d in ACCOUNT_DOMAINS), "sites.yaml")
 if sites_path.read_text(encoding="utf-8") != sites:
     sites_path.write_text(sites, encoding="utf-8")

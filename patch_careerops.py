@@ -1,7 +1,7 @@
-import subprocess
 from pathlib import Path
 
 repo = Path(__file__).parent / "career-ops"
+base = Path(__file__).parent / "vendor-base" / "career-ops"  # originales sin parchear
 runner = repo / "batch" / "batch-runner.sh"
 anchor = '  echo "--- Processing offer #$id: $url (report $report_num, attempt $((retries + 1)))"\n'
 fallback = r'''  local jd_special jd_cache gh_id gh_board
@@ -40,8 +40,7 @@ fallback = r'''  local jd_special jd_cache gh_id gh_board
 
 '''
 
-original = subprocess.run(["git", "-C", str(repo), "show", "HEAD:batch/batch-runner.sh"],
-                          capture_output=True, text=True, encoding="utf-8", check=True).stdout
+original = (base / "batch" / "batch-runner.sh").read_text(encoding="utf-8")
 if anchor not in original:
     raise SystemExit("patch failed: anchor not found in batch-runner.sh")
 patched = original.replace(anchor, fallback + anchor, 1)
@@ -66,8 +65,7 @@ if runner.read_text(encoding="utf-8") != patched:
     runner.write_text(patched, encoding="utf-8", newline="\n")
 
 gemini = repo / "batch-evaluate-gemini.mjs"
-g_original = subprocess.run(["git", "-C", str(repo), "show", "HEAD:batch-evaluate-gemini.mjs"],
-                            capture_output=True, text=True, encoding="utf-8", check=True).stdout
+g_original = (base / "batch-evaluate-gemini.mjs").read_text(encoding="utf-8")
 g_anchor = "async function scrapeUrl(browser, url) {\n"
 g_import = "import { promisify } from 'util';\n"
 if g_anchor not in g_original or g_import not in g_original:
