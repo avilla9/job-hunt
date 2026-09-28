@@ -370,7 +370,19 @@ def watch_code(server):
             return
 
 
+def disable_quick_edit():
+    # Un clic en la ventana de consola (modo selección/QuickEdit) congela cualquier print() hasta pulsar Enter/Esc;
+    # el print del reinicio automático se quedaba bloqueado con el puerto ya cerrado y la interfaz "se caía".
+    import ctypes
+    kernel32 = ctypes.windll.kernel32
+    handle, mode = kernel32.GetStdHandle(-10), ctypes.c_uint32()
+    if kernel32.GetConsoleMode(handle, ctypes.byref(mode)):
+        kernel32.SetConsoleMode(handle, (mode.value & ~0x40) | 0x80)  # quita ENABLE_QUICK_EDIT_MODE, fija ENABLE_EXTENDED_FLAGS
+
+
 if __name__ == "__main__":
+    if po.WINDOWS:
+        disable_quick_edit()
     if sys.stdout:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
