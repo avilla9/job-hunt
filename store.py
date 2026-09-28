@@ -35,6 +35,8 @@ DEFAULTS = {
     "linkedin_enabled": False,
     "linkedin_cap": 15,
     "eval_parallel": 3,
+    "eval_batch": 30,
+    "apply_batch": 10,
     "schedule_times": ["08:00", "20:00"],
     "full_name": "",
     "email": "",

@@ -159,6 +159,8 @@ def start_run(trigger="manual"):
     (ROOT / "logs").mkdir(exist_ok=True)
     po.spawn_detached([sys.executable, str(ROOT / "run_daily.py"), trigger], ROOT,
                       ROOT / "logs" / f"task-{datetime.now():%Y%m%d-%H%M%S}.txt")
+    if trigger.startswith("apply"):
+        return True, "Enviando solicitudes de la cola"
     return True, "Prueba segura iniciada: no se enviará nada" if trigger == "test" else "Ejecución iniciada"
 
 
@@ -287,6 +289,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if path == "/api/run":
                 ok, msg = start_run()
+            elif path == "/api/apply-queue":
+                ok, msg = start_run(f"apply:{max(1, min(int(body.get('limit') or 10), 500))}")
             elif path == "/api/test-run":
                 ok, msg = start_run("test")
             elif path == "/api/stop":

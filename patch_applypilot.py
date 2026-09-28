@@ -110,6 +110,19 @@ launcher = replace(launcher, '            add_event(f"[W{worker_id}] Launcher er
                    '            add_event(f"[W{worker_id}] Launcher error: {str(e)[:40]}")\n'
                    '            mark_result(job["url"], "failed", f"launcher_error: {str(e)[:80]}")\n', "launcher.py")
 launcher = replace(launcher, "Score: {job.get('fit_score', 'N/A')}/10", "Score: {job.get('fit_score', 'N/A')}/100", "launcher.py")
+launcher = replace(launcher, "_w{worker_id}_{job.get('site', 'unknown')[:20]}.txt\"",
+                   "_w{worker_id}_{re.sub(r'[^A-Za-z0-9._-]', '_', str(job.get('site') or 'unknown'))[:20]}.txt\"", "launcher.py")
+launcher = replace(launcher, '        for result_status in ["APPLIED", "EXPIRED", "CAPTCHA", "LOGIN_ISSUE"]:\n',
+                   '        if "RESULT:" not in output and re.search(r"(session|usage|weekly) limit|limit reached|resets \\d", output, re.I):\n'
+                   '            add_event(f"[W{worker_id}] USAGE LIMIT")\n'
+                   '            print("USAGE_LIMIT_REACHED: se agotó el límite de uso del modelo", flush=True)\n'
+                   '            return "usage_limit", duration_ms\n\n'
+                   '        for result_status in ["APPLIED", "EXPIRED", "CAPTCHA", "LOGIN_ISSUE"]:\n', "launcher.py")
+launcher = replace(launcher, '            if result == "skipped":\n',
+                   '            if result == "usage_limit":\n'
+                   '                release_lock(job["url"])\n'
+                   '                break\n'
+                   '            if result == "skipped":\n', "launcher.py")
 write("launcher.py", launcher)
 
 chrome = original("chrome.py")

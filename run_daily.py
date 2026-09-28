@@ -40,6 +40,7 @@ ACTIONS = {
 }
 ACCOUNT_COMPANIES = ("a.team", "toptal", "turing", "upwork", "mercor", "braintrust", "arc.dev", "lemon.io", "gun.io", "x-team",
                      "crossover", "andela", "outlier", "remotasks", "contra", "fiverr")
+LIMIT_RX = re.compile(r"hit your (session|usage|weekly) limit|usage limit reached", re.I)
 SECURITY_RX = re.compile(r"forgot password|password reset|reset (the )?password|reset email|password (we|I) (created|typed|entered)|"
                          r"created (an |the |a new )?account|sign ?up form|registration form|fill(ed|ing)? in .{0,40}(sign ?up|registration)", re.I)
 DISCARDED = ("expired", "not_eligible_location", "not_eligible_work_auth", "older than", "suspicious", "discarded")
@@ -271,19 +272,24 @@ def pending_evaluations():
 
 def evaluate(s, test=False):
     if s["ai_provider"] == "gemini":
-        limit = ["--limit=3"] if test else []
+        n = 3 if test else int(s["eval_batch"])
+        limit = [f"--limit={n}"] if n else []
         return step("Evaluación", run(["node", "batch-evaluate-gemini.mjs", f"--concurrency={s['eval_parallel']}", *limit], CO,
                                       {"GEMINI_API_KEY": s["gemini_api_key"]}, timeout=remaining("evaluate")))
     code = 0
-    for _ in range(1 if test else 5):
+    batch = 3 if test else int(s["eval_batch"])
+    for _ in range(1 if batch else 5):
         run(["node", "reserve-report-num.mjs", "--gc"], CO, timeout=120)
         extra = ["--resume-paused"] if (CO / "batch" / "batch-runner.paused").exists() else []
-        extra += ["--limit", "3"] if test else []
+        extra += ["--limit", str(batch)] if batch else []
         code = run([BASH, "batch/batch-runner.sh", "--parallel", str(s["eval_parallel"]), "--min-score", str(s["min_score"]),
                     "--max-retries", "3", *extra], CO, timeout=remaining("evaluate"))
-        if test or DEADLINE - time.time() < 900 or not pending_evaluations():
+        if batch or DEADLINE - time.time() < 900 or not pending_evaluations():
             break
-    return step("Evaluación", code, ok_codes=(0, 2))
+    step("Evaluación", code, ok_codes=(0, 2))
+    if batch and not test and pending_evaluations():
+        STEPS["Evaluación"] += f" (lote de {batch}; quedan pendientes para la próxima)"
+    return code
 
 
 def test_applypilot_dir():
@@ -296,7 +302,12 @@ def test_applypilot_dir():
     return target
 
 
-def apply(s, test=False):
+def limit_hit(log_dir, since):
+    return any(f.stat().st_mtime >= since and LIMIT_RX.search(f.read_text(encoding="utf-8", errors="replace")[-600:])
+               for f in (log_dir.glob("claude_*.txt") if log_dir.exists() else []))
+
+
+def apply(s, test=False, batch=None):
     run([AP_EXE, "status"], ROOT, AP_ENV, timeout=300)
     if not ap_ready():
         return step("Envío", 1)
@@ -305,7 +316,8 @@ def apply(s, test=False):
     enqueue(ap, parse_reports(), float(s["min_score"]), int(s["max_age_days"]), lambda title: rejection(title, s), s["cv_md"])
     ap.close()
     sync(DB, RUN_ID)
-    env, extra = AP_ENV, ["--limit", "1000"]
+    batch = int(s["apply_batch"] if batch is None else batch) or 1000
+    env, extra = AP_ENV, ["--limit", str(batch)]
     if test:
         env = {**AP_ENV, "APPLYPILOT_DIR": str(test_applypilot_dir())}
         extra = ["--limit", "2", "--dry-run"]
@@ -314,7 +326,12 @@ def apply(s, test=False):
     code = run([AP_EXE, "apply", "--min-score", str(round(float(s["min_score"]) * 20)), "--workers", "1",
                 "--model", s["apply_model"], *extra], ROOT, env, timeout=remaining("apply"))
     audit_agent_logs(Path(env["APPLYPILOT_DIR"]) / "logs", started, test)
-    return step("Envío", code)
+    step("Envío", code)
+    if limit_hit(Path(env["APPLYPILOT_DIR"]) / "logs", started):
+        log("Envío detenido: se agotó el límite de uso del modelo; lo pendiente sigue en cola")
+        STEPS["Envío"] = "Detenido: límite de uso del modelo (lo pendiente sigue en cola)"
+    sync(DB, RUN_ID)
+    return code
 
 
 def audit_agent_logs(log_dir, since, test=False):
@@ -375,6 +392,7 @@ def main(trigger="scheduled"):
     if not po.WINDOWS:
         signal.signal(signal.SIGTERM, on_terminate)
     test = trigger == "test"
+    only_apply = trigger.startswith("apply")
     s = store.get_settings(DB)
     RUN_ID = datetime.now().strftime("%Y%m%d-%H%M%S")
     DEADLINE = time.time() + TOTAL_BUDGET
@@ -392,7 +410,11 @@ def main(trigger="scheduled"):
         onboarding.ensure_cv_pdf(s)
         propagate(s)
         log("salvaguardas y configuración aplicadas a los bots" + (" · MODO PRUEBA (no se envía nada)" if test else ""))
-        if s["ats_enabled"] or s["jobspy_enabled"]:
+        if only_apply:
+            if s["ai_provider"] != "claude":
+                raise RuntimeError("El envío automático requiere Claude Code")
+            apply(s, batch=int(trigger.split(":")[1]) if ":" in trigger else None)
+        elif s["ats_enabled"] or s["jobspy_enabled"]:
             if s["ats_enabled"]:
                 step("Búsqueda en portales", run(["node", "scan.mjs", "--quiet"], CO, timeout=remaining("scan")))
             if s["jobspy_enabled"]:
@@ -403,7 +425,7 @@ def main(trigger="scheduled"):
             evaluate(s, test)
             if s["ai_provider"] == "claude":
                 apply(s, test)
-        if s["linkedin_enabled"]:
+        if s["linkedin_enabled"] and not only_apply:
             linkedin(s, test)
         log(f"{sync(DB, RUN_ID)} solicitudes actualizadas")
         if any(v.startswith("ERROR") for v in STEPS.values()):

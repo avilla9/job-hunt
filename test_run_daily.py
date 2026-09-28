@@ -104,3 +104,10 @@ rd.enqueue(ap2, [{"company": "A.Team", "role": "Senior Engineer", "url": "https:
 assert ap2.execute("SELECT apply_status, apply_error FROM jobs").fetchone() == ("manual", "manual ATS: plataforma que exige cuenta")
 assert rd.classify("manual", "manual ATS: plataforma que exige cuenta")[0] == "Acción requerida"
 print("security ok")
+
+limit_dir = Path(tempfile.mkdtemp())
+(limit_dir / "claude_1_w0_x.txt").write_text("You've hit your session limit · resets 12am (America/Caracas)", encoding="utf-8")
+assert rd.limit_hit(limit_dir, 0)
+(limit_dir / "claude_1_w0_x.txt").write_text("Handles rate limits in APIs. RESULT:APPLIED", encoding="utf-8")
+assert not rd.limit_hit(limit_dir, 0)
+print("usage limit ok")
