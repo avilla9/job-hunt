@@ -14,10 +14,10 @@ NODE_CWD = ROOT / "career-ops"
 REMOTE_TERMS = ["Remote", "Worldwide", "Anywhere", "Global"]
 BASE_NEGATIVES = ["word:Intern", "Internship", "Praktikant", "Werkstudent", "Thesis", "Trainee", "Apprentice", "Stagiaire",
                   "Pasante", "Becario", "Student"]
-REMOTE_BOARDS = ["himalayas", "remotive", "remoteok", "weworkremotely", "workingnomads", "jobicy", "nodesk",
-                 "remotli", "4dayweek"]
-TECH_BOARDS = ["hackernews", "pythonorg", "larajobs", "landingjobs"]
-BOARD_EXTRA = {"remotli": {"careers_url": "https://remotli.ch/api/jobs"}, "4dayweek": {"careers_url": "https://4dayweek.io/api/jobs"},
+# Fuera remoteok, 4dayweek (piden pago) y larajobs (pide login): sus ofertas no se pueden evaluar
+REMOTE_BOARDS = ["himalayas", "remotive", "weworkremotely", "workingnomads", "jobicy", "nodesk", "remotli"]
+TECH_BOARDS = ["hackernews", "pythonorg", "landingjobs"]
+BOARD_EXTRA = {"remotli": {"careers_url": "https://remotli.ch/api/jobs"},
                "pythonorg": {"careers_url": "https://www.python.org/jobs/"}}
 US_ONLY = ["must be located in the united states", "us-based candidates only", "must reside in the us",
            "authorized to work in the us", "eu residents only", "must be based in the uk", "must be located in europe"]
