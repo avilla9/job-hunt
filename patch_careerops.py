@@ -34,8 +34,14 @@ fallback = r'''  local jd_special jd_cache gh_id gh_board
       echo "    JD via headless browser"
     else
       : > "$jd_file"
-      echo "    JD not retrievable locally, worker will WebFetch"
     fi
+  fi
+  if ! node -e "const t=require('fs').readFileSync(process.argv[1],'utf-8').replace(/<[^>]+>/g,' ').toLowerCase();const k=['responsib','requirement','qualification','experience','what you','you will','about the role','skills','salary','benefits','requisitos','responsabilidades','experiencia','funciones','beneficios'].filter(w=>t.includes(w)).length;const n=t.split(/\s+/).length;process.exit(n>=300&&k>=1||n>=80&&k>=2?0:1)" "$jd_file" 2>/dev/null; then
+    rm -f "$jd_file"
+    update_state_retrying "$id" "$url" "failed" "$started_at" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$report_num" "-" "no-jd: sin descripción de empleo legible (omitida sin coste de IA)" "$MAX_RETRIES" || true
+    release_report_num "$report_num"
+    echo "    ⏭️  No readable job description — skipped without calling the model"
+    return 0
   fi
 
 '''

@@ -17,7 +17,7 @@ import onboarding
 import platform_ops as po
 import store
 from configgen import propagate
-from filters import LANGS, blocked_language, excluded, rejection, title_pattern  # noqa: F401
+from filters import LANGS, blocked_language, excluded, needs_account, rejection, title_pattern  # noqa: F401
 
 ROOT = Path(__file__).resolve().parent
 CO = ROOT / "career-ops"
@@ -148,6 +148,7 @@ def parse_reports():
         out.append({"company": head[1], "role": head[2], "url": field("URL"), "score": float(score[1]),
                     "pdf": str(pdf_path) if pdf_path and pdf_path.exists() else str(ROOT / "profile" / "cv.pdf"),
                     "suspicious": field("Legitimacy").lower().startswith("suspicious"),
+                    "location_ok": not field("Location eligible").lower().lstrip("`*").startswith("no"),
                     "salary": (re.search(r'^advertised_comp:\s*"?([^"\n]*)"?', text, re.M) or [None, ""])[1].replace("null", "")})
     return out
 
@@ -158,16 +159,28 @@ def ensure_resume_text(pdf, cv_md):
         txt.write_text(cv_md, encoding="utf-8")
 
 
+def job_key(company, role):
+    return re.sub(r"[^a-z0-9]+", " ", f"{company}|{role}".lower()).strip()
+
+
 def enqueue(ap, reports, min_score, max_age_days, reject=lambda title: None, cv_md=""):
     added = 0
-    for r in reports:
-        if r["score"] < min_score:
+    known = {r[0]: job_key(r[1], r[2]) for r in ap.execute("SELECT url, site, title FROM jobs")}
+    taken = {job_key(r[0], r[1]) for r in ap.execute(
+        "SELECT site, title FROM jobs WHERE apply_status IS NULL OR apply_status IN ('applied','in_progress','manual')")}
+    for r in sorted(reports, key=lambda r: -r["score"]):
+        if r["score"] < min_score or r["url"] in known:
             continue
+        key = job_key(r["company"], r["role"])
         status, error = ("expired", "suspicious") if r["suspicious"] else (None, None)
         reason = reject(r["role"])
         if reason:
             status, error = "expired", f"discarded: {reason}"
-        elif any(c in r["company"].lower() for c in ACCOUNT_COMPANIES):
+        elif not r.get("location_ok", True):
+            status, error = "expired", "not_eligible_location (evaluación)"
+        elif key in taken:
+            status, error = "expired", "discarded: duplicada (misma empresa y puesto)"
+        elif any(c in r["company"].lower() for c in ACCOUNT_COMPANIES) or needs_account(r["url"]):
             status, error = "manual", "manual ATS: plataforma que exige cuenta"
         ensure_resume_text(r["pdf"], cv_md)
         cur = ap.execute(
@@ -175,7 +188,10 @@ def enqueue(ap, reports, min_score, max_age_days, reject=lambda title: None, cv_
             " VALUES(?,?,?,?,?,?,?,?,?,?)",
             (r["url"], r["role"], r["company"], r["url"], r["pdf"], round(r["score"] * 20),
              store.now(), status, error, r.get("salary", "")))
-        added += cur.rowcount
+        added += cur.rowcount if status is None else 0
+        known[r["url"]] = key
+        if status is None or status == "manual":
+            taken.add(key)
     cutoff = (datetime.now() - timedelta(days=max_age_days)).isoformat()
     ap.execute("UPDATE jobs SET apply_status='expired', apply_error='older than max age'"
                " WHERE (apply_status IS NULL OR apply_status='failed') AND applied_at IS NULL AND discovered_at < ?", (cutoff,))

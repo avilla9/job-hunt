@@ -29,6 +29,9 @@ manual_ats:
   - "successfactors.com"
   - "oraclecloud.com"
   - "brassring.com"
+  - "getonbrd.com"
+  - "torre.ai"
+  - "weworkremotely.com"
   - "ibegin.tcsapps.com"       # TCS iBegin — unsolvable CAPTCHA every time
 
 # ── Blocked sites — too problematic for automation ───────────────────────

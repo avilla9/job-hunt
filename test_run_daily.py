@@ -111,3 +111,20 @@ assert rd.limit_hit(limit_dir, 0)
 (limit_dir / "claude_1_w0_x.txt").write_text("Handles rate limits in APIs. RESULT:APPLIED", encoding="utf-8")
 assert not rd.limit_hit(limit_dir, 0)
 print("usage limit ok")
+
+ap3 = sqlite3.connect(":memory:")
+ap3.execute("CREATE TABLE jobs(url TEXT PRIMARY KEY,title,site,application_url,tailored_resume_path,fit_score,discovered_at,"
+            "apply_status,apply_error,applied_at,salary)")
+base = {"pdf": "cv.pdf", "suspicious": False, "salary": ""}
+rd.enqueue(ap3, [
+    {**base, "company": "LangChain", "role": "Deployed Architect", "url": "https://a/1", "score": 3.8},
+    {**base, "company": "LangChain", "role": "Deployed Architect", "url": "https://a/2", "score": 3.5},
+    {**base, "company": "Get on Board Co", "role": "Dev", "url": "https://www.getonbrd.com/jobs/x", "score": 4.5},
+    {**base, "company": "Acme", "role": "Engineer", "url": "https://a/3", "score": 4.0, "location_ok": False},
+], 3.5, 30)
+got = dict(ap3.execute("SELECT url, COALESCE(apply_error, 'queued') FROM jobs"))
+assert got["https://a/1"] == "queued" and got["https://a/2"].startswith("discarded: duplicada"), got
+assert got["https://www.getonbrd.com/jobs/x"].startswith("manual ATS"), got
+assert got["https://a/3"].startswith("not_eligible_location"), got
+assert rd.needs_account("https://jobs.torre.ai/x") and not rd.needs_account("https://jobs.ashbyhq.com/x")
+print("cost fixes ok")

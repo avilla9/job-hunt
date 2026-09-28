@@ -1,4 +1,15 @@
 import re
+from urllib.parse import urlparse
+
+ACCOUNT_DOMAINS = ["a.team", "toptal.com", "turing.com", "upwork.com", "mercor.com", "braintrust.com", "arc.dev", "lemon.io",
+                   "gun.io", "x-team.com", "crossover.com", "andela.com", "outlier.ai", "remotasks.com", "fiverr.com", "contra.com",
+                   "myworkdayjobs.com", "taleo.net", "icims.com", "successfactors.com", "oraclecloud.com", "brassring.com",
+                   "getonbrd.com", "torre.ai", "weworkremotely.com"]
+
+
+def needs_account(url):
+    host = urlparse(url or "").netloc.lower()
+    return any(host == d or host.endswith("." + d) for d in ACCOUNT_DOMAINS)
 
 LANGS = {"es": "Spanish", "en": "English", "pt": "Portuguese", "fr": "French", "de": "German", "it": "Italian",
          "nl": "Dutch", "pl": "Polish"}

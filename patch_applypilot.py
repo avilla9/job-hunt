@@ -130,9 +130,7 @@ chrome = replace(chrome, '    if (profile_dir / "Default").exists():\n        re
                  '    (profile_dir / "Default").mkdir(parents=True, exist_ok=True)\n    return profile_dir\n', "chrome.py")
 write("chrome.py", chrome)
 
-ACCOUNT_DOMAINS = ["a.team", "toptal.com", "turing.com", "upwork.com", "mercor.com", "braintrust.com", "arc.dev", "lemon.io",
-                   "gun.io", "x-team.com", "crossover.com", "andela.com", "outlier.ai", "remotasks.com", "fiverr.com", "contra.com",
-                   "myworkdayjobs.com", "taleo.net", "icims.com", "successfactors.com", "oraclecloud.com", "brassring.com"]
+from filters import ACCOUNT_DOMAINS  # noqa: E402
 sites_path = repo / "src/applypilot/config/sites.yaml"
 sites = (pristine / "src/applypilot/config/sites.yaml").read_text(encoding="utf-8")
 sites = replace(sites, 'manual_ats:\n', "manual_ats:\n" + "".join(f'  - "{d}"\n' for d in ACCOUNT_DOMAINS), "sites.yaml")

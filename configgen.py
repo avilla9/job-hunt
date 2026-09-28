@@ -76,7 +76,13 @@ def rules_block(s):
                        if remote_ok(s) else "")
         rules.append("## Work arrangement and location (hard rule)\n"
                      f"Accepted work arrangements: {', '.join(modes)}. Read the arrangement from the job description; "
-                     f"if it is not one of these, score it 1.0/5 (FAIL).{onsite_part}{remote_part}")
+                     f"if it is not one of these, score it 1.0/5 (FAIL).{onsite_part}{remote_part}\n"
+                     f"Candidate location: {', '.join(x for x in (s['city'], s['country']) if x) or 'see profile'}. "
+                     "If the posting limits candidates to countries or regions that do not include it (e.g. 'US only', "
+                     "'must reside in', 'EMEA', 'Europe', 'Canada', 'authorized to work in the US', a US/EU time zone residency "
+                     "requirement, a location question in the form such as 'Are you based in EMEA?'), score it 1.0/5 (FAIL). "
+                     "Worldwide, LATAM or 'anywhere' roles pass. In the report header, right after **Work Auth:**, always add the line "
+                     "`**Location eligible:** yes` or `no` or `unclear`.")
     if int(s["salary_min_month"] or 0) > 0:
         rules.append("## Minimum compensation (hard rule)\n"
                      f"If the posting states compensation clearly below {s['salary_min_month']} {s['currency']} per month "
